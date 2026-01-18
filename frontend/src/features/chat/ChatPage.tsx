@@ -496,6 +496,7 @@ const ChatPage: React.FC = () => {
 
         return date.toLocaleDateString('ru', { day: 'numeric', month: 'long' });
     };
+
     const queryClient = useQueryClient();
     const { channelId } = useParams();
     const [searchParams, setSearchParams] = useSearchParams();

@@ -5,15 +5,25 @@ import {
 } from 'lucide-react';
 import type { ContextMenuItem } from '../../../types';
 import { useContextMenu } from '../../../hooks/useContextMenu';
+import api from '../../../api/client';
+import { useConfigStore } from '../../../store/useConfigStore';
 
-interface ChatAttachmentItemProps {
+const getFullUrlLocal = (path: string, token: string | null): string => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    const { serverUrl } = useConfigStore.getState();
+    const baseUrl = (serverUrl || import.meta.env.VITE_API_URL || api.defaults.baseURL || '').replace(/\/api$/, '');
+    const finalPath = path.startsWith('/api') ? path : path.startsWith('/board') ? `/api${path}` : path;
+    return `${baseUrl}${finalPath}${token ? (finalPath.includes('?') ? `&token=${token}` : `?token=${token}`) : ''}`;
+};
+
+ interface ChatAttachmentItemProps {
     msg: import('../../../types').Message;
     isSent: boolean;
     onView: () => void;
     onDownload: () => void;
     getFileConfig: (filename: string) => { icon: React.ReactNode; color: string; label: string };
     token: string | null;
-    getFullUrl: (path: string, isApi?: boolean) => string;
 }
 
 export const ChatAttachmentItem: React.FC<ChatAttachmentItemProps> = ({
@@ -22,8 +32,7 @@ export const ChatAttachmentItem: React.FC<ChatAttachmentItemProps> = ({
     onView,
     onDownload,
     getFileConfig,
-    token,
-    getFullUrl
+    token
 }) => {
     const { t } = useTranslation();
     const config = getFileConfig(msg.file_path || '');
@@ -44,7 +53,7 @@ export const ChatAttachmentItem: React.FC<ChatAttachmentItemProps> = ({
 
     const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
     const isImage = msg.file_path && imageExtensions.includes(fileExt.toLowerCase());
-    const imageUrl = isImage ? getFullUrl(`/board/documents/${msg.document_id}/view?token=${token}`, true) : null;
+    const imageUrl = isImage ? getFullUrlLocal(`/board/documents/${msg.document_id}/view`, token) : null;
 
     if (isDeleted) {
         return (
@@ -158,7 +167,7 @@ export const ChatAttachmentItem: React.FC<ChatAttachmentItemProps> = ({
                     <button
                         onClick={(e: React.MouseEvent) => {
                             e.stopPropagation();
-                            const url = getFullUrl(`/board/documents/${msg.document_id}/download?token=${token}`, true);
+                            const url = getFullUrlLocal(`/board/documents/${msg.document_id}/download`, token);
                             const link = document.createElement('a');
                             link.href = url;
                             link.setAttribute('download', msg.document_title || 'download');
