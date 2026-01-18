@@ -2,7 +2,7 @@ import React, { Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
 import { X, Mail, Phone, Building2, Calendar, MessageSquare, Briefcase } from 'lucide-react';
 import type { User } from '../../../types';
-import Avatar from '../../../components/Avatar';
+import Avatar from '../../design-system';
 import { useTranslation } from 'react-i18next';
 
 interface UserProfileModalProps {

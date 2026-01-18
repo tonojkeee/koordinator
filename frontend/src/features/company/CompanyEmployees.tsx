@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { User } from '../../types';
 import { Search, Building2, Phone, MessageSquare, Loader2, Mail, CheckSquare, Square, Calendar } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import Avatar from '../../components/Avatar';
+import Avatar from '../design-system';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../api/client';
 

@@ -49,3 +49,10 @@ export type { HeaderIconProps, HeaderIconColor } from './components/HeaderIcon';
 
 export { DesignSystemErrorBoundary } from './components/ErrorBoundary';
 export { default as ErrorBoundary } from './components/ErrorBoundary';
+
+export { Avatar } from './components/Avatar';
+export type { AvatarProps, AvatarSize, AvatarStatus } from './components/Avatar';
+
+export { ToastProvider } from './components/Toast';
+export { ToastContext, useToast } from './components/ToastContext';
+export type { Toast, ToastContextType } from './components/Toast';

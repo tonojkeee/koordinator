@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import type { User } from '../../types';
 import { HelpCircle, MessageSquare, Shield, LifeBuoy, Mail, Loader2, Headset, FileText, CheckCircle, ClipboardList, Building2, Archive } from 'lucide-react';
-import Modal from '../../components/Modal';
+import Modal from '../design-system';
 import packageJson from '../../../package.json';
 
 const HelpPage: React.FC = () => {

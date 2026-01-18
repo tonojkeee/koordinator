@@ -4,7 +4,7 @@ import { useAuthStore } from './store/useAuthStore';
 import { useEffect } from 'react';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './components/layout/MainLayout';
-import { ToastProvider } from './components/Toast';
+import { ToastProvider } from './design-system';
 import { useDocumentViewer } from './features/board/store/useDocumentViewer';
 import { useTokenRefresh } from './hooks/useTokenRefresh';
 

@@ -31,7 +31,7 @@ import {
 import api from '../../api/client';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useConfigStore } from '../../store/useConfigStore';
-import { useToast } from '../../components/ToastContext';
+import { useToast } from '../design-system';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import type { User, ContextMenuItem } from '../../types';
