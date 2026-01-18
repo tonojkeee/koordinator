@@ -8,7 +8,7 @@ import api from '../api/client';
  */
 export const useTokenRefresh = () => {
     const { token, refreshToken, setAuth, clearAuth } = useAuthStore();
-    const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const isRefreshingRef = useRef(false);
 
     useEffect(() => {
@@ -30,7 +30,7 @@ export const useTokenRefresh = () => {
                     refresh_token: refreshToken
                 });
 
-                const { access_token, refresh_token, csrf_token } = response.data;
+                const { access_token, refresh_token } = response.data;
 
                 // Получаем текущего пользователя
                 const currentUser = useAuthStore.getState().user;

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useUnreadStore } from '../../store/useUnreadStore';
@@ -472,32 +472,7 @@ const MainLayout: React.FC = () => {
         clearAuth();
         navigate('/login');
     };
-
-    const navRef = useRef<HTMLDivElement>(null);
-    const [isScrollable, setIsScrollable] = useState(false);
-
-    useEffect(() => {
-        const checkScroll = () => {
-            if (navRef.current) {
-                const { scrollHeight, clientHeight } = navRef.current;
-                setIsScrollable(scrollHeight > clientHeight);
-            }
-        };
-
-        checkScroll();
-
-        const observer = new ResizeObserver(checkScroll);
-        if (navRef.current) {
-            observer.observe(navRef.current);
-        }
-
-        window.addEventListener('resize', checkScroll);
-        return () => {
-            observer.disconnect();
-            window.removeEventListener('resize', checkScroll);
-        };
-    }, []);
-
+ 
     // Fetch public system settings (for system notice)
     const { data: systemSettings } = useQuery<Record<string, any>>({
         queryKey: ['public-settings'],

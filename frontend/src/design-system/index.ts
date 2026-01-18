@@ -54,5 +54,5 @@ export { Avatar } from './components/Avatar';
 export type { AvatarProps, AvatarSize, AvatarStatus } from './components/Avatar';
 
 export { ToastProvider } from './components/Toast';
+export type { Toast, ToastContextType } from './components/ToastContext';
 export { ToastContext, useToast } from './components/ToastContext';
-export type { Toast, ToastContextType } from './components/Toast';
