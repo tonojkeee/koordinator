@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@headlessui/react": "^2.2.9",
+    "date-fns": "^4.1.0"
+  },
+  "devDependencies": {
+    "jscpd": "^4.0.7"
+  }
+}

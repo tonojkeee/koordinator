@@ -1,0 +1,54 @@
+name: Build & Release
+
+on:
+  workflow_dispatch:
+
+
+jobs:
+  build-windows:
+    name: Build Windows Installers
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: ./frontend
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Dependencies
+        run: npm install
+
+      # 1. Build Standard Version (Windows 10/11)
+      - name: Build Windows 10/11 (Standard)
+        run: npm run electron:build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Win10 Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-10-Installer
+          path: frontend/dist-electron/*-Setup-*.exe
+          if-no-files-found: error
+
+      # 2. Build Legacy Version (Windows 7)
+      - name: Build Windows 7 (Legacy)
+        # Verify specific script execution
+        run: npm run build:win7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Win7 Installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-7-Installer
+          path: frontend/dist-electron/*-Win7-Setup-*.exe
+          if-no-files-found: error

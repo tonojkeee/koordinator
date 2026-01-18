@@ -1,0 +1,37 @@
+# System
+.DS_Store
+Thumbs.db
+*.log
+
+# Node
+node_modules/
+dist/
+dist-electron/
+release/
+build/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Project
+backend/lint_errors.txt
+backend/lint_report.txt
+frontend/lint_errors.txt
+frontend/lint_report.txt
+
+# Database
+*.db
+*.sqlite
+*.sqlite3

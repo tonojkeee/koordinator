@@ -1,0 +1,34 @@
+[Unit]
+Description=ГИС КООРДИНАТОР API Server
+After=network.target mysql.service redis.service
+Wants=mysql.service redis.service
+
+[Service]
+Type=simple
+User=tonojkeee
+Group=tonojkeee
+WorkingDirectory=/home/tonojkeee/projects/main/backend
+Environment="PATH=/home/tonojkeee/projects/main/backend/venv/bin"
+EnvironmentFile=/home/tonojkeee/projects/main/backend/.env
+
+ExecStart=/home/tonojkeee/projects/main/backend/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+
+# Graceful shutdown
+TimeoutStopSec=30
+KillMode=mixed
+
+# Restart policy
+Restart=always
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=koordinator-api
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

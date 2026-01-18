@@ -1,0 +1,30 @@
+[Unit]
+Description=ГИС КООРДИНАТОР Celery Beat Scheduler
+After=network.target redis.service
+Wants=redis.service koordinator-celery.service
+
+[Service]
+Type=simple
+User=tonojkeee
+Group=tonojkeee
+WorkingDirectory=/home/tonojkeee/projects/main/backend
+Environment="PATH=/home/tonojkeee/projects/main/backend/venv/bin"
+EnvironmentFile=/home/tonojkeee/projects/main/backend/.env
+
+ExecStart=/home/tonojkeee/projects/main/backend/venv/bin/celery -A app.core.celery_app beat --loglevel=info
+
+# Restart policy
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=koordinator-beat
+
+# Security
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
