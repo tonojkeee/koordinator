@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { emailService, type EmailAccount, type EmailFolder, type EmailMessage, type EmailMessageList } from './emailService';
 import EmailList from './components/EmailList';
 import EmailDetails from './components/EmailDetails';
@@ -37,13 +37,7 @@ const EmailPage: React.FC = () => {
         init();
     }, []);
 
-    // Fetch Emails when folder changes
-    useEffect(() => {
-        fetchEmails();
-        setSelectedEmailId(null);
-    }, [selectedFolder]);
-
-    const fetchEmails = async () => {
+    const fetchEmails = useCallback(async () => {
         setLoading(true);
         try {
             const msgs = await emailService.getMessages(selectedFolder);
@@ -54,7 +48,13 @@ const EmailPage: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [selectedFolder]);
+
+    // Fetch Emails when folder changes
+    useEffect(() => {
+        fetchEmails();
+        setSelectedEmailId(null);
+    }, [fetchEmails]);
 
     const fetchFolders = async () => {
         try {

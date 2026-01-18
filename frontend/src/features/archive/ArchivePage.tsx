@@ -1278,7 +1278,7 @@ const ArchivePage: React.FC = () => {
             window.removeEventListener('keydown', handleKeyDown);
             window.removeEventListener('paste', handlePaste);
         };
-    }, [hoveredItem, canInteract, activeUser, performBatchUpload, selectedItems, clipboard, content, filteredData, currentFolderId, activeTab, currentUnitId, queryClient, t, addToast, updateToast, removeToast, clearSelection, handleOpenNative, navigateToFolder]);
+    }, [hoveredItem, canInteract, activeUser, performBatchUpload, selectedItems, clipboard, content, filteredData, currentFolderId, activeTab, currentUnitId, queryClient, t, addToast, updateToast, removeToast, clearSelection, handleOpenNative, navigateToFolder, openViewer]);
 
     const handleDragEnter = (e: React.DragEvent) => {
         e.preventDefault();

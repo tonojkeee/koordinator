@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useLayoutEffect, startTransition } from 'react';
+import React, { useState, useEffect, useCallback, useLayoutEffect, startTransition } from 'react';
 import type { TFunction } from 'i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/client';
@@ -1118,11 +1118,7 @@ const DatabaseSettingsTab = ({ t }: { t: TFunction }) => {
     const [isTesting, setIsTesting] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
-    useEffect(() => {
-        loadConfig();
-    }, []);
-
-    const loadConfig = async () => {
+    const loadConfig = useCallback(async () => {
         try {
             const { data } = await api.get('/admin/database/config');
             setConfig({
@@ -1137,7 +1133,11 @@ const DatabaseSettingsTab = ({ t }: { t: TFunction }) => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [t, addToast]);
+
+    useEffect(() => {
+        loadConfig();
+    }, [loadConfig]);
 
     const handleTest = async () => {
         setIsTesting(true);

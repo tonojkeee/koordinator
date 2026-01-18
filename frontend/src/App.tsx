@@ -90,6 +90,7 @@ function AppContent() {
           console.error('Failed to refresh user profile:', err);
         });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, updateUser]); // Only run on mount or if token changes
 
   useEffect(() => {
