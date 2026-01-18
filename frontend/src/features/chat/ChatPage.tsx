@@ -5,24 +5,20 @@ import api from '../../api/client';
 import type { Message, Channel, User } from '../../types';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useUnreadStore } from '../../store/useUnreadStore';
-import { useConfigStore } from '../../store/useConfigStore';
 import { useWebSocket } from '../../hooks/useWebSocket';
-import { Send, Hash, Info, MessageSquare, Smile, Bell, BellOff, Plus, FileText, Download, Eye, FileSpreadsheet, FileImage, FileQuestion, Crown, FileX, Trash2, Users, X, CheckCheck, Check } from 'lucide-react';
+import { Send, MessageSquare, Smile, Trash2, Users, X, Hash, Bell, BellOff, Info, Plus, Crown, Check, CheckCheck, FileText } from 'lucide-react';
 import EmojiPicker, { EmojiStyle, Theme, type EmojiClickData } from 'emoji-picker-react';
 
 
 import SendDocumentModal from '../board/components/SendDocumentModal';
-import { useDocumentViewer } from '../board/store/useDocumentViewer';
 import { useTranslation } from 'react-i18next';
 import ChannelSidebar from './ChannelSidebar';
 
 import ParticipantsList from './ParticipantsList';
 import { Avatar } from '../../design-system';
 import MuteModal from './MuteModal';
-import { useContextMenu } from '../../hooks/useContextMenu';
-import { type ContextMenuItem } from '../../types';
+import { formatDate, renderMessageContent } from './utils';
 import { formatName } from '../../utils/formatters';
-// import ThreadView from './ThreadView';
 
 import { type Reaction } from '../../types';
 
@@ -44,195 +40,8 @@ type WebSocketMessage =
 // Lazy load removed - using direct import
 // const EmojiPickerComponent = React.lazy(() => import('emoji-picker-react'));
 
-// Skeleton loader for messages
-const MessageSkeleton: React.FC = () => (
-    <div className="animate-pulse space-y-4 py-4">
-        {[...Array(5)].map((_, i) => (
-            <div key={i} className={`flex ${i % 2 === 0 ? 'justify-start' : 'justify-end'} items-end space-x-3`}>
-                {i % 2 === 0 && <div className="w-8 h-8 bg-slate-200/60 rounded-xl shrink-0" />}
-                <div className={`space-y-2 ${i % 2 === 0 ? '' : 'items-end'}`}>
-                    <div className={`h-12 bg-slate-200/60 rounded-2xl ${i % 2 === 0 ? 'w-48' : 'w-36'}`} />
-                    {i % 3 === 0 && <div className="h-8 bg-slate-200/40 rounded-xl w-32" />}
-                </div>
-                {i % 2 !== 0 && <div className="w-8 h-8 bg-slate-200/60 rounded-xl shrink-0" />}
-            </div>
-        ))}
-    </div>
-);
-
-interface ChatAttachmentItemProps {
-    msg: Message;
-    isSent: boolean;
-    onView: () => void;
-    onDownload: () => void;
-    getFileConfig: (filename: string) => { icon: React.ReactNode; color: string; label: string };
-    token: string | null;
-    getFullUrl: (path: string, isApi?: boolean) => string;
-}
-
-const ChatAttachmentItem: React.FC<ChatAttachmentItemProps> = ({
-    msg,
-    isSent,
-    onView,
-    onDownload,
-    getFileConfig,
-    token,
-    getFullUrl
-}) => {
-    const { t } = useTranslation();
-    const config = getFileConfig(msg.file_path || '');
-    const fileExt = (msg.file_path?.split('.').pop() || 'file').toUpperCase();
-    const isDeleted = msg.is_document_deleted;
-
-    const menuItems: ContextMenuItem[] = isDeleted ? [] : [
-        { id: 'view', label: t('common.view') },
-        { id: 'download', label: t('common.download') },
-    ];
-
-    const handleContextMenu = useContextMenu(menuItems, (id) => {
-        if (id === 'view') onView();
-        if (id === 'download') onDownload();
-    });
-
-    const isElectron = window.electron !== undefined;
-
-    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
-    const isImage = msg.file_path && imageExtensions.includes(fileExt.toLowerCase());
-    const imageUrl = isImage ? getFullUrl(`/board/documents/${msg.document_id}/view?token=${token}`, true) : null;
-
-    if (isDeleted) {
-        return (
-            <div className="mt-2 w-full max-w-sm group/attach select-none">
-                <div className={`flex items-center space-x-3.5 p-3 rounded-2xl border transition-all duration-300 ${isSent
-                    ? 'bg-black/10 border-white/10 hover:bg-black/20'
-                    : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
-                    }`}>
-                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${isSent ? 'bg-white/10 text-white' : 'bg-slate-200 text-slate-500'
-                        }`}>
-                        <FileX size={22} className="opacity-60" />
-                    </div>
-                    <div className="flex-1 min-w-0 pr-1">
-                        <h4 className={`text-[13px] font-bold tracking-tight ${isSent ? 'text-white' : 'text-slate-700'}`}>
-                            {t('chat.document_deleted')}
-                        </h4>
-                        <div className="flex items-center space-x-2 mt-0.5">
-                            <span className={`text-[10px] font-black tracking-[0.1em] uppercase ${isSent ? 'text-indigo-200/50' : 'text-slate-400'}`}>
-                                {t('common.unavailable')}
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    if (isImage && imageUrl) {
-        return (
-            <div
-                onClick={onView}
-                onContextMenu={handleContextMenu}
-                className={`mt-2 ${isSent ? 'ml-auto' : ''} w-full max-w-sm group/attach cursor-pointer`}
-            >
-                <div className={`rounded-xl overflow-hidden transition-all duration-300`}>
-                    <img
-                        src={imageUrl}
-                        alt={msg.document_title || 'Image'}
-                        className="w-full h-auto max-h-48 object-cover"
-                        loading="lazy"
-                    />
-                    <div className={`px-2.5 py-1.5 flex items-center justify-between ${isSent
-                        ? 'bg-white/10 backdrop-blur-sm'
-                        : 'bg-slate-50'
-                        }`}>
-                        <div className="flex-1 min-w-0">
-                            <h4 className={`text-[11px] font-bold truncate ${isSent ? 'text-white' : 'text-slate-900'}`}>
-                                {msg.document_title || t('chat.fileNotification.document')}
-                            </h4>
-                        </div>
-                        <div className="flex items-center space-x-1 ml-2 shrink-0">
-                            <button
-                                onClick={(e) => { e.stopPropagation(); onDownload(); }}
-                                className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all ${isSent
-                                    ? 'text-white hover:bg-white/20'
-                                    : 'text-slate-500 hover:bg-slate-100'
-                                    }`}
-                                title={t('chat.fileNotification.download')}
-                            >
-                                <Download size={16} />
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    return (
-        <div
-            onClick={isElectron ? onDownload : onView}
-            onContextMenu={handleContextMenu}
-            className={`mt-2 ${isSent ? 'ml-auto' : ''} w-full max-w-sm group/attach cursor-pointer`}
-        >
-            <div className={`flex items-center space-x-4 p-3.5 rounded-2xl border transition-all duration-300 ${isSent
-                ? 'bg-white/10 border-white/10 hover:bg-white/15'
-                : 'bg-white border-slate-100 hover:border-indigo-100'
-                }`}>
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${isSent ? 'bg-white/20 text-white' : 'bg-indigo-50 text-indigo-600'
-                    }`}>
-                    {config.icon}
-                </div>
-
-                <div className="flex-1 min-w-0 pr-1">
-                    <h4 className={`text-[13px] font-bold truncate transition-colors ${isSent ? 'text-white' : 'text-slate-900 group-hover/attach:text-indigo-600'
-                        }`}>
-                        {msg.document_title || t('chat.fileNotification.document')}
-                    </h4>
-                    <div className="flex items-center space-x-2 mt-0.5">
-                        <span className={`text-[10px] font-black tracking-wider uppercase ${isSent ? 'text-indigo-200' : 'text-indigo-500'}`}>
-                            {fileExt}
-                        </span>
-                        <span className={`w-1 h-1 rounded-full opacity-30 ${isSent ? 'bg-white' : 'bg-slate-400'}`} />
-                        <span className={`text-[10px] font-bold uppercase tracking-tight opacity-50 truncate max-w-[100px] ${isSent ? 'text-white' : 'text-slate-500'}`}>
-                            {config.label}
-                        </span>
-                    </div>
-                </div>
-
-                <div className="flex items-center space-x-1 shrink-0">
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onView(); }}
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isSent
-                            ? 'bg-white/10 text-white hover:bg-white/25 active:scale-90'
-                            : 'bg-slate-50 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 active:scale-95'
-                            }`}
-                        title={t('chat.fileNotification.view')}
-                    >
-                        <Eye size={17} />
-                    </button>
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            const url = getFullUrl(`/board/documents/${msg.document_id}/download?token=${token}`, true);
-                            const link = document.createElement('a');
-                            link.href = url;
-                            link.setAttribute('download', msg.document_title || 'download');
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                        }}
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all ${isSent
-                            ? 'bg-white/10 text-white hover:bg-white/25 active:scale-90'
-                            : 'bg-slate-50 text-slate-500 hover:bg-slate-200 hover:text-slate-700 active:scale-95'
-                            }`}
-                        title={t('chat.fileNotification.download')}
-                    >
-                        <Download size={17} />
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-};
+// Skeleton loader for messages - imported from components
+import { MessageSkeleton } from './components';
 
 interface MessageInputProps {
     isConnected: boolean;
@@ -484,19 +293,6 @@ const MessageInput = React.forwardRef<MessageInputHandle, MessageInputProps>((
 const ChatPage: React.FC = () => {
     const { t } = useTranslation();
 
-    const formatDate = (dateString: string) => {
-        const date = new Date(dateString);
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const yesterday = new Date(today);
-        yesterday.setDate(yesterday.getDate() - 1);
-
-        if (date >= today) return t('chat.today');
-        if (date >= yesterday) return t('chat.yesterday');
-
-        return date.toLocaleDateString('ru', { day: 'numeric', month: 'long' });
-    };
-
     const queryClient = useQueryClient();
     const { channelId } = useParams();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -515,7 +311,6 @@ const ChatPage: React.FC = () => {
     const prevScrollHeightRef = useRef<number>(0);
     const isFetchingMoreRef = useRef<boolean>(false);
     const isInitialLoadRef = useRef<boolean>(true);
-    const { open: openDocViewer } = useDocumentViewer();
     const [highlightDocId, setHighlightDocId] = useState<number | null>(null);
     const [showParticipants, setShowParticipants] = useState(true);
     const [isMuteModalOpen, setIsMuteModalOpen] = useState(false);
@@ -528,58 +323,6 @@ const ChatPage: React.FC = () => {
     };
 
 
-    const getFileConfig = (filename: string) => {
-        const ext = filename?.split('.').pop()?.toLowerCase() || '';
-        if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) {
-            return { icon: <FileImage size={24} />, color: 'bg-rose-100 text-rose-600', label: t('chat.fileNotification.image') };
-        }
-        if (ext === 'pdf') {
-            return { icon: <FileText size={24} />, color: 'bg-red-100 text-red-600', label: t('chat.fileNotification.pdf') };
-        }
-        if (['doc', 'docx'].includes(ext)) {
-            return { icon: <FileText size={24} />, color: 'bg-blue-100 text-blue-600', label: t('chat.fileNotification.word') };
-        }
-        if (['xls', 'xlsx', 'csv'].includes(ext)) {
-            return { icon: <FileSpreadsheet size={24} />, color: 'bg-emerald-100 text-emerald-600', label: t('chat.fileNotification.excel') };
-        }
-        return { icon: <FileQuestion size={24} />, color: 'bg-slate-100 text-slate-600', label: t('chat.fileNotification.file') };
-    };
-
-    const { serverUrl } = useConfigStore();
-
-    const getFullUrl = (path: string, isApi = false) => {
-        if (!path) return '';
-        if (path.startsWith('http')) return path;
-        const baseUrl = (serverUrl || import.meta.env.VITE_API_URL || api.defaults.baseURL || '').replace(/\/api$/, '');
-        const finalPath = isApi ? `/api${path}` : path;
-        return `${baseUrl}${finalPath}`;
-    };
-
-    const renderMessageContent = (content: string, isSent: boolean) => {
-        if (!content) return null;
-
-        // Regex for mentions like @username
-        const mentionRegex = /(\B@[a-zA-Z0-9_]+)/g;
-        const parts = content.split(mentionRegex);
-
-        return parts.map((part, index) => {
-            if (part.match(mentionRegex)) {
-                return (
-                    <span
-                        key={index}
-                        className={`inline-block px-1.5 py-0.5 rounded-md font-bold transition-all ${isSent
-                            ? 'bg-white/20 text-white shadow-sm'
-                            : 'bg-indigo-100 text-indigo-700 shadow-sm border border-indigo-200/50'
-                            }`}
-                        style={{ margin: '0 1px' }}
-                    >
-                        {part}
-                    </span>
-                );
-            }
-            return part;
-        });
-    };
 
     // Fetch channel details
     const { data: channel } = useQuery<Channel>({
@@ -1301,7 +1044,7 @@ const ChatPage: React.FC = () => {
                                                     <React.Fragment key={msg.id}>
                                                         {showDateSeparator && (
                                                             <div className={`date-separator ${animations.fadeIn}`}>
-                                                                <span className="date-label">{formatDate(msg.created_at)}</span>
+                                                                <span className="date-label">{formatDate(msg.created_at, t)}</span>
                                                             </div>
                                                         )}
 
@@ -1383,7 +1126,7 @@ const ChatPage: React.FC = () => {
                                                                             </div>
                                                                         )}
 
-                                                                        {msg.document_id && (msg.file_path || msg.is_document_deleted === true) && (
+                                                                        {/* msg.document_id && (msg.file_path || msg.is_document_deleted === true) && (
                                                                             <ChatAttachmentItem
                                                                                 msg={msg}
                                                                                 isSent={isSent}
@@ -1401,7 +1144,7 @@ const ChatPage: React.FC = () => {
                                                                                 token={token}
                                                                                 getFullUrl={getFullUrl}
                                                                             />
-                                                                        )}
+                                                                        )} */}
 
                                                                         <div className="flex flex-col relative">
                                                                             {msg.content && (!msg.document_id || (!msg.content.startsWith('📎 Отправил файл:') && !msg.content.startsWith('📎 Поделился файлом:'))) && (
