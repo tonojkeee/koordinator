@@ -1,11 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-    FileIcon,
-    Archive as ArchiveIcon,
-    FileText,
-    Image as ImageIcon,
-    FileCode,
     Folder as FolderIcon,
     Trash2,
     Clock,
@@ -38,7 +33,7 @@ interface ArchiveFolderCardProps {
     onMouseEnter?: () => void;
     onMouseLeave?: () => void;
     onRename?: (item: { id: number; type: 'file' | 'folder'; name: string }) => void;
-    onProperties?: (item: { id: number; type: 'file' | 'folder' }) => void;
+    onProperties?: (item: ArchiveFolder | ArchiveFile) => void;
 }
 
 export const ArchiveFolderCard: React.FC<ArchiveFolderCardProps> = ({
@@ -88,7 +83,7 @@ export const ArchiveFolderCard: React.FC<ArchiveFolderCardProps> = ({
         if (id === 'paste') onPaste();
         if (id === 'delete') onDelete(folder);
         if (id === 'rename' && onRename) onRename({ id: folder.id, type: 'folder', name: folder.name });
-        if (id === 'properties' && onProperties) onProperties({ id: folder.id, type: 'folder' });
+        if (id === 'properties' && onProperties) onProperties(folder);
     });
 
     return (
@@ -136,17 +131,6 @@ export const ArchiveFolderCard: React.FC<ArchiveFolderCardProps> = ({
     );
 };
 
-const getFileIcon = (mimeType?: string) => {
-    if (!mimeType) return <FileIcon size={16} strokeWidth={1.5} />;
-    
-    if (mimeType.startsWith('image/')) return <ImageIcon size={16} strokeWidth={1.5} />;
-    if (mimeType.includes('pdf') || mimeType.includes('document')) return <FileText size={16} strokeWidth={1.5} />;
-    if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('archive')) return <ArchiveIcon size={16} strokeWidth={1.5} />;
-    if (mimeType.includes('text') || mimeType.includes('code') || mimeType.includes('json') || mimeType.includes('xml')) return <FileCode size={16} strokeWidth={1.5} />;
-    
-    return <FileIcon size={16} strokeWidth={1.5} />;
-};
-
 interface ArchiveFileCardProps {
     file: ArchiveFile;
     index: number;
@@ -169,7 +153,7 @@ interface ArchiveFileCardProps {
     onMouseEnter?: () => void;
     onMouseLeave?: () => void;
     onRename?: (item: { id: number; type: 'file' | 'folder'; name: string }) => void;
-    onProperties?: (item: { id: number; type: 'file' | 'folder' }) => void;
+    onProperties?: (item: ArchiveFolder | ArchiveFile) => void;
 }
 
 export const ArchiveFileCard: React.FC<ArchiveFileCardProps> = ({
@@ -234,7 +218,7 @@ export const ArchiveFileCard: React.FC<ArchiveFileCardProps> = ({
         if (id === 'paste') onPaste();
         if (id === 'delete') onDelete(file);
         if (id === 'rename' && onRename) onRename({ id: file.id, type: 'file', name: file.title });
-        if (id === 'properties' && onProperties) onProperties({ id: file.id, type: 'file' });
+        if (id === 'properties' && onProperties) onProperties(file);
         if (id === 'copy-path' && isElectron) {
             window.electron!.copyToClipboard(file.file_path);
         }

@@ -4,8 +4,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Search,
     Plus,
-    Clock,
-    User as UserIcon,
     Building2,
     ClipboardList,
     Trash2,
@@ -21,6 +19,8 @@ import {
     X,
     HardDrive,
     FileIcon,
+    FileText,
+    FileCode,
     Image as ImageIcon,
     Folder as FolderIcon,
     Archive as ArchiveIcon,
@@ -28,13 +28,12 @@ import {
 } from 'lucide-react';
 import api from '../../api/client';
 import { useAuthStore } from '../../store/useAuthStore';
-import { useConfigStore } from '../../store/useConfigStore';
 import { useToast } from '../../design-system';
 import { useTranslation } from 'react-i18next';
-import type { User } from '../../types';
+import type { User, Unit, ContextMenuItem } from '../../types';
 import { useDocumentViewer } from '../board/store/useDocumentViewer';
 import { formatDate, formatSize } from './utils';
-import type { ArchiveFolder, ArchiveFile, ArchiveItem } from './types';
+import type { ArchiveFolder, ArchiveFile, ArchiveItem, ArchiveContent, FilteredData } from './types';
 import { ArchiveFolderItem, ArchiveFileItem } from './components/ArchiveListRow';
 import { ArchiveFolderCard, ArchiveFileCard } from './components/ArchiveGridItem';
 import { useContextMenu } from '../../hooks/useContextMenu';
@@ -557,7 +556,7 @@ const ArchivePage: React.FC = () => {
 
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
     const [sortConfig, setSortConfig] = useState<{ key: string, direction: 'asc' | 'desc' }>({ key: 'name', direction: 'asc' });
-    const [hoveredItem, setHoveredItem] = useState<{ type: 'file' | 'folder', item: ArchiveItem } | null>(null);
+    const [hoveredItem, setHoveredItem] = useState<{ type: 'file' | 'folder', item: ArchiveFolder | ArchiveFile | Unit } | null>(null);
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
     const [searchParams, setSearchParams] = useSearchParams();
     const searchInputRef = useRef<HTMLInputElement>(null);
@@ -570,7 +569,7 @@ const ArchivePage: React.FC = () => {
     const [droppedFile, setDroppedFile] = useState<File | null>(null);
     const dragCounter = React.useRef(0);
     const [renameState, setRenameState] = useState<{ isOpen: boolean; item: { id: number; type: 'file' | 'folder'; name: string } | null }>({ isOpen: false, item: null });
-    const [propertiesState, setPropertiesState] = useState<{ isOpen: boolean; item: ArchiveItem | null; type: 'file' | 'folder' | null }>({ isOpen: false, item: null, type: null });
+    const [propertiesState, setPropertiesState] = useState<{ isOpen: boolean; item: ArchiveFolder | ArchiveFile | null; type: 'file' | 'folder' | null }>({ isOpen: false, item: null, type: null });
 
     // Fetch all units for global view
     const { data: units, isLoading: isUnitsLoading } = useQuery<Unit[]>({
@@ -1480,20 +1479,20 @@ const ArchivePage: React.FC = () => {
             const start = Math.min(lastSelectedIndex, index);
             const end = Math.max(lastSelectedIndex, index);
             const items = [...(filteredData.folders || []), ...(filteredData.files || [])];
-            const range = items.slice(start, end + 1).map((it: ArchiveItem) => {
+            const range = items.slice(start, end + 1).map((it: ArchiveFolder | ArchiveFile) => {
                 const isFolder = !('file_path' in it);
                 return { id: it.id, type: (isFolder ? 'folder' : 'file') as 'folder' | 'file' };
             });
             setSelectedItems(range);
         } else if (isCtrl) {
             setSelectedItems(prev => {
-                const exists = prev.find(i => i.id === item.id && i.type === type);
-                if (exists) return prev.filter(i => !(i.id === item.id && i.type === type));
-                return [...prev, { id: item.id, type }];
+                const exists = prev.find(i => i.id === item.data.id && i.type === type);
+                if (exists) return prev.filter(i => !(i.id === item.data.id && i.type === type));
+                return [...prev, { id: item.data.id, type }];
             });
             setLastSelectedIndex(index);
         } else {
-            setSelectedItems([{ id: item.id, type }]);
+            setSelectedItems([{ id: item.data.id, type }]);
             setLastSelectedIndex(index);
         }
     };
@@ -1931,15 +1930,6 @@ const ArchivePage: React.FC = () => {
                                                     index={absoluteIndex}
                                                     isSelected={!!selectedItems.find(i => i.id === file.id && i.type === 'file')}
                                                     selectionCount={selectedItems.length}
-                                                    onView={() => {
-                                                        const previewUrl = `${api.defaults.baseURL}/archive/files/${file.id}/view?token=${useAuthStore.getState().token}`;
-                                                        openViewer(previewUrl, file.title, file.file_path, file.mime_type);
-                                                    }}
-                                                    onDownload={() => {
-                                                        const previewUrl = `${api.defaults.baseURL}/archive/files/${file.id}/view?token=${useAuthStore.getState().token}`;
-                                                        window.location.href = `${previewUrl}&download=1`;
-                                                    }}
-                                                    onOpenNative={() => handleOpenNative(file)}
                                                     onClick={handleItemClick}
                                                     onDelete={deleteFile}
                                                     onCopy={handleCopy}
@@ -1950,10 +1940,9 @@ const ArchivePage: React.FC = () => {
                                                     currentUserId={activeUser?.id}
                                                     userRole={activeUser?.role}
                                                     userUnitId={activeUser?.unit_id}
-                                                    getFileIcon={getFileIcon}
                                                     onMouseEnter={() => setHoveredItem({ type: 'file', item: file })}
                                                     onMouseLeave={() => setHoveredItem(null)}
-                                                    onRename={(f) => setRenameState({ isOpen: true, item: { id: f.id, type: 'file', name: f.title } })}
+                                                    onRename={(f) => setRenameState({ isOpen: true, item: f })}
                                                     onProperties={(f) => setPropertiesState({ isOpen: true, item: f, type: 'file' })}
                                                 />
                                             );
@@ -1977,7 +1966,7 @@ const ArchivePage: React.FC = () => {
                                                 selectionCount={selectedItems.length}
                                                 folder={folder}
                                                 onNavigate={navigateToFolder}
-                                                onClick={(e, idx) => handleItemClick(e, 'folder', folder, idx)}
+                                                onClick={(e, idx) => handleItemClick(e, 'folder', { type: 'folder', data: folder }, idx)}
                                                 onDelete={deleteFolder}
                                                 onCopy={handleCopy}
                                                 onCut={handleCut}
@@ -2009,7 +1998,7 @@ const ArchivePage: React.FC = () => {
                                                     window.location.href = `${previewUrl}&download=1`;
                                                 }}
                                                 onOpenNative={() => handleOpenNative(file)}
-                                                onClick={(e, idx) => handleItemClick(e, 'file', file, idx)}
+                                                onClick={(e, idx) => handleItemClick(e, 'file', { type: 'file', data: file }, idx)}
                                                 onDelete={deleteFile}
                                                 onCopy={handleCopy}
                                                 onCut={handleCut}
@@ -2022,7 +2011,7 @@ const ArchivePage: React.FC = () => {
                                                 getFileIcon={getFileIcon}
                                                 onMouseEnter={() => setHoveredItem({ type: 'file', item: file })}
                                                 onMouseLeave={() => setHoveredItem(null)}
-                                                onRename={(f) => setRenameState({ isOpen: true, item: { id: f.id, type: 'file', name: f.title } })}
+                                                onRename={(f) => setRenameState({ isOpen: true, item: f })}
                                                 onProperties={(f) => setPropertiesState({ isOpen: true, item: f, type: 'file' })}
                                             />
                                         ))}

@@ -33,7 +33,7 @@ interface ArchiveFolderListRowProps {
     onMouseEnter?: () => void;
     onMouseLeave?: () => void;
     onRename?: (item: { id: number; type: 'file' | 'folder'; name: string }) => void;
-    onProperties?: (item: { id: number; type: 'file' | 'folder' }) => void;
+    onProperties?: (item: ArchiveFolder | ArchiveFile) => void;
 }
 
 export const ArchiveFolderItem: React.FC<ArchiveFolderListRowProps> = ({
@@ -83,7 +83,7 @@ export const ArchiveFolderItem: React.FC<ArchiveFolderListRowProps> = ({
         if (id === 'paste') onPaste();
         if (id === 'delete') onDelete(folder);
         if (id === 'rename' && onRename) onRename({ id: folder.id, type: 'folder', name: folder.name });
-        if (id === 'properties' && onProperties) onProperties({ id: folder.id, type: 'folder' });
+        if (id === 'properties' && onProperties) onProperties(folder);
     });
 
     return (
@@ -148,7 +148,7 @@ interface ArchiveFileListRowProps {
     onMouseEnter?: () => void;
     onMouseLeave?: () => void;
     onRename?: (item: { id: number; type: 'file' | 'folder'; name: string }) => void;
-    onProperties?: (item: { id: number; type: 'file' | 'folder' }) => void;
+    onProperties?: (item: ArchiveFolder | ArchiveFile) => void;
 }
 
 export const ArchiveFileItem: React.FC<ArchiveFileListRowProps> = ({
@@ -197,7 +197,7 @@ export const ArchiveFileItem: React.FC<ArchiveFileListRowProps> = ({
         if (id === 'paste') onPaste();
         if (id === 'delete') onDelete(file);
         if (id === 'rename' && onRename) onRename({ id: file.id, type: 'file', name: file.title });
-        if (id === 'properties' && onProperties) onProperties({ id: file.id, type: 'file' });
+        if (id === 'properties' && onProperties) onProperties(file);
     });
 
     return (

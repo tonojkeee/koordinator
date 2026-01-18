@@ -17,7 +17,6 @@ import { useToast } from '../../design-system';
 import { Avatar } from '../../design-system';
 import type { User, Unit, AuditLog, SystemSetting } from '../../types';
 import type { Task } from '../tasks/types';
-import { Header } from '../../design-system';
 import { formatBytes, formatActivityDate, formatChartDate, formatDuration } from './utils';
 import { StatCard } from './components/StatCard';
 
@@ -48,52 +47,6 @@ interface StorageStat {
     count: number;
     color: string;
 }
-
-const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-};
-
-const formatActivityDate = (dateStr: string) => {
-    try {
-        const date = new Date(dateStr);
-        return date.toLocaleString('ru-RU', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-        });
-    } catch {
-        return dateStr;
-    }
-};
-
-const formatChartDate = (dateStr: string) => {
-    try {
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('ru-RU', {
-            day: '2-digit',
-            month: '2-digit',
-        });
-    } catch {
-        return dateStr;
-    }
-};
-
-const formatDuration = (start: Date) => {
-    const diff = Math.max(0, new Date().getTime() - start.getTime());
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-
-    if (hours > 0) return `${hours}h ${minutes}m`;
-    if (minutes > 0) return `${minutes}m ${seconds}s`;
-    return `${seconds}s`;
-};
 
 interface UnitStat {
     name: string;
