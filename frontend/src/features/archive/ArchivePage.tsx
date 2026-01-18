@@ -3,15 +3,9 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Search,
-    FileIcon,
     Plus,
-    Archive as ArchiveIcon,
-    FileText,
-    Image as ImageIcon,
-    FileCode,
     Clock,
     User as UserIcon,
-    Folder as FolderIcon,
     Building2,
     ClipboardList,
     Trash2,
@@ -21,90 +15,27 @@ import {
     Home,
     FolderPlus,
     Upload,
-    Globe,
     ArrowUp,
     Edit2,
     Info,
     X,
-    HardDrive
+    HardDrive,
+    FileIcon,
+    Image as ImageIcon
 } from 'lucide-react';
 import api from '../../api/client';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useConfigStore } from '../../store/useConfigStore';
 import { useToast } from '../design-system';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
-import type { User, ContextMenuItem } from '../../types';
-import { useContextMenu } from '../../hooks/useContextMenu';
+import type { User } from '../../types';
 import { useDocumentViewer } from '../board/store/useDocumentViewer';
+import { formatDate, formatSize } from './utils';
+import type { ArchiveFolder, ArchiveFile, ArchiveItem } from './types';
+import { ArchiveFolderListRow, ArchiveFileListRow } from './components/ArchiveListRow';
 
 
-
-const formatDate = (dateString: string, t: TFunction) => {
-    try {
-        return new Intl.DateTimeFormat('ru-RU', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric'
-        }).format(new Date(dateString));
-    } catch {
-        return t('common.date_unknown');
-    }
-};
-
-const formatSize = (bytes?: number) => {
-    if (!bytes) return '0 B';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-};
-
-interface ArchiveFolder {
-    id: number;
-    name: string;
-    parent_id?: number | null;
-    unit_id: number;
-    owner_id: number;
-    owner_name?: string;
-    created_at: string;
-}
-
-interface ArchiveFile {
-    id: number;
-    title: string;
-    description?: string;
-    file_path: string;
-    file_size?: number;
-    mime_type?: string;
-    owner_id: number;
-    owner_name?: string;
-    unit_id: number;
-    unit_name?: string;
-    folder_id?: number | null;
-    created_at: string;
-}
-
-interface ArchiveContent {
-    folders: ArchiveFolder[];
-    files: ArchiveFile[];
-}
-
-type ArchiveItem = ArchiveFolder | ArchiveFile | Unit;
-
-interface Unit {
-    id: number;
-    name: string;
-    description?: string;
-}
-
-interface FilteredData {
-    units?: Unit[];
-    folders?: ArchiveFolder[];
-    files?: ArchiveFile[];
-}
-
-const ArchiveFolderListRow: React.FC<{
+const RenameModal: React.FC<{
     folder: ArchiveFolder;
     index: number;
     isSelected: boolean;
