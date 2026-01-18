@@ -52,7 +52,8 @@ export const Select = React.memo<SelectProps>(({
   ...props
 }) => {
   // Generate unique ID if not provided
-  const selectId = id || React.useId();
+  const generatedId = React.useId();
+  const selectId = id || generatedId;
 
   return (
     <div className={cn('space-y-1.5', fullWidth && 'w-full')}>

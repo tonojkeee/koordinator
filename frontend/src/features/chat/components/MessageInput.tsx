@@ -38,6 +38,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
 
     const typingDebounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastTypingSentRef = React.useRef<boolean>(false);
+    const [currentTime, setCurrentTime] = React.useState(() => Date.now());
 
     React.useImperativeHandle(ref, () => ({
         handleMention: (username: string) => {
@@ -107,9 +108,18 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const typingUsersList = Object.values(typingUsers)
-        .filter(u => Date.now() - u.timestamp < 3000)
-        .slice(0, 3);
+    React.useEffect(() => {
+        const interval = setInterval(() => {
+            setCurrentTime(Date.now());
+        }, 1000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const typingUsersList = React.useMemo(() => {
+        return Object.values(typingUsers)
+            .filter(u => currentTime - u.timestamp < 3000)
+            .slice(0, 3);
+    }, [typingUsers, currentTime]);
 
     return (
         <div className="relative">

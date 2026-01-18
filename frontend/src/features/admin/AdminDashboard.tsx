@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect, startTransition } from 'react';
 import type { TFunction } from 'i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../../api/client';
@@ -76,14 +76,22 @@ interface SystemHealth {
     status: string;
 }
 
+interface DatabaseConfig {
+    type: 'sqlite' | 'mysql' | 'postgresql';
+    host?: string;
+    port?: number;
+    user?: string;
+    password?: string;
+    database?: string;
+}
+
 interface EditUserModalProps {
     user: User;
     units: Unit[];
     onClose: () => void;
     onSave: (id: number, data: Partial<User>) => void;
     onResetPassword: (id: number, pass: string) => void;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    t: any;
+    t: TFunction;
 }
 
 const EditUserModal = ({ user, units, onClose, onSave, onResetPassword, t }: EditUserModalProps) => {
@@ -334,8 +342,7 @@ const EditUserModal = ({ user, units, onClose, onSave, onResetPassword, t }: Edi
 };
 
 interface OverviewTabProps {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    t: any;
+    t: TFunction;
     stats: OverviewStats | undefined;
     activityData: ActivityStat[] | undefined;
     storageData: StorageStat[] | undefined;
@@ -616,14 +623,15 @@ const OverviewTab = ({ t, stats, activityData, storageData, unitStats, recentAct
 );
 
 interface UsersTabProps {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    t: any;
+    t: TFunction;
     searchQuery: string;
     setSearchQuery: (query: string) => void;
     filteredUsers: User[];
     setEditingUser: (user: User | null) => void;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    deleteUserMutation: any; // Keep any for mutation for now as it's complex, or use UseMutationResult
+    deleteUserMutation: {
+        mutate: (id: number) => void;
+        isPending: boolean;
+    };
 }
 
 const UsersTab = ({
@@ -739,8 +747,7 @@ interface EditUnitModalProps {
     unit: Partial<Unit>;
     onClose: () => void;
     onSave: (data: Partial<Unit>) => void;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    t: any;
+    t: TFunction;
 }
 
 const EditUnitModal = ({ unit, onClose, onSave, t }: EditUnitModalProps) => {
@@ -797,14 +804,15 @@ const EditUnitModal = ({ unit, onClose, onSave, t }: EditUnitModalProps) => {
 };
 
 interface UnitsTabProps {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    t: any;
+    t: TFunction;
     units: Unit[] | undefined;
     searchQuery: string;
     setSearchQuery: (query: string) => void;
     setEditingUnit: (unit: Partial<Unit> | null) => void;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    deleteUnitMutation: any;
+    deleteUnitMutation: {
+        mutate: (id: number) => void;
+        isPending: boolean;
+    };
 }
 
 const UnitsTab = ({ t, units, searchQuery, setSearchQuery, setEditingUnit, deleteUnitMutation }: UnitsTabProps) => {
@@ -881,8 +889,7 @@ const UnitsTab = ({ t, units, searchQuery, setSearchQuery, setEditingUnit, delet
 };
 
 interface SessionsTabProps {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    t: any;
+    t: TFunction;
     sessions: User[] | undefined;
     isLoading: boolean;
 }
@@ -1097,9 +1104,9 @@ const SessionsTab = ({ t, sessions, isLoading }: SessionsTabProps) => (
     </div>
 );
 
-const DatabaseSettingsTab = ({ t }: { t: any }) => {
+const DatabaseSettingsTab = ({ t }: { t: TFunction }) => {
     const { addToast } = useToast();
-    const [config, setConfig] = useState<any>({
+    const [config, setConfig] = useState<DatabaseConfig>({
         type: 'sqlite',
         host: 'localhost',
         port: 3306,
@@ -1137,11 +1144,14 @@ const DatabaseSettingsTab = ({ t }: { t: any }) => {
         try {
             await api.post('/admin/database/test', config);
             addToast({ type: 'success', title: t('common.success'), message: t('admin.database.connectionSuccess') });
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error && typeof error === 'object' && 'response' in error
+                ? (error as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? t('admin.database.connectionFailed')
+                : t('admin.database.connectionFailed');
             addToast({
                 type: 'error',
                 title: t('common.error'),
-                message: error.response?.data?.detail || t('admin.database.connectionFailed')
+                message
             });
         } finally {
             setIsTesting(false);
@@ -1155,11 +1165,14 @@ const DatabaseSettingsTab = ({ t }: { t: any }) => {
         try {
             await api.post('/admin/database/save', config);
             addToast({ type: 'success', title: t('common.saved'), message: t('admin.database.restartNote') });
-        } catch (error: any) {
+        } catch (error: unknown) {
+            const message = error && typeof error === 'object' && 'response' in error
+                ? (error as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? t('admin.database.saveFailed')
+                : t('admin.database.saveFailed');
             addToast({
                 type: 'error',
                 title: t('common.error'),
-                message: error.response?.data?.detail || t('admin.database.saveFailed')
+                message
             });
         } finally {
             setIsSaving(false);
@@ -1295,7 +1308,7 @@ const DatabaseSettingsTab = ({ t }: { t: any }) => {
     );
 };
 
-const AppSettingsTab = ({ t, visibleGroup }: { t: any, visibleGroup?: string }) => {
+const AppSettingsTab = ({ t, visibleGroup }: { t: TFunction, visibleGroup?: string }) => {
     const { addToast } = useToast();
     const queryClient = useQueryClient();
 
@@ -1305,7 +1318,7 @@ const AppSettingsTab = ({ t, visibleGroup }: { t: any, visibleGroup?: string }) 
     });
 
     const updateMutation = useMutation({
-        mutationFn: async ({ key, value }: { key: string, value: any }) => {
+        mutationFn: async ({ key, value }: { key: string, value: string | number | boolean }) => {
             return api.patch(`/admin/settings/${key}`, { value });
         },
         onSuccess: () => {
@@ -1387,7 +1400,7 @@ const AppSettingsTab = ({ t, visibleGroup }: { t: any, visibleGroup?: string }) 
     );
 };
 
-const SettingField = ({ setting, onUpdate, t }: { setting: SystemSetting, onUpdate: (val: any) => void, t: any }) => {
+const SettingField = ({ setting, onUpdate, t }: { setting: SystemSetting, onUpdate: (val: string | number | boolean) => void, t: TFunction }) => {
     // Parse initial value carefully
     const parseVal = (s: SystemSetting) => {
         if (s.type === 'bool') return s.value.toLowerCase() === 'true';
@@ -1398,12 +1411,14 @@ const SettingField = ({ setting, onUpdate, t }: { setting: SystemSetting, onUpda
     const [val, setVal] = useState(parseVal(setting));
     const [isDirty, setIsDirty] = useState(false);
 
-    useEffect(() => {
-        setVal(parseVal(setting));
-        setIsDirty(false);
+    useLayoutEffect(() => {
+        startTransition(() => {
+            setVal(parseVal(setting));
+            setIsDirty(false);
+        });
     }, [setting]);
 
-    const handleChange = (newVal: any) => {
+    const handleChange = (newVal: string | number | boolean) => {
         setVal(newVal);
         setIsDirty(true);
         // Auto-save bools immediately

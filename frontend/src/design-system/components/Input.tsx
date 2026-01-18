@@ -44,7 +44,8 @@ export const Input = React.memo<InputProps>(({
   ...props
 }) => {
   // Generate unique ID if not provided
-  const inputId = id || React.useId();
+  const generatedId = React.useId();
+  const inputId = id || generatedId;
 
   return (
     <div className={cn('space-y-1.5', fullWidth && 'w-full')}>

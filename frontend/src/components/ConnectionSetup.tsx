@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { Server, CheckCircle2, XCircle, ArrowRight } from 'lucide-react';
 import axios from 'axios';
 
+interface DiscoveredServer {
+    id: string;
+    name: string;
+    url: string;
+    version: string;
+}
+
 interface ConnectionSetupProps {
     onConfigured: (serverUrl: string) => void;
     initialUrl?: string;
@@ -11,7 +18,7 @@ const ConnectionSetup: React.FC<ConnectionSetupProps> = ({ onConfigured, initial
     const [url, setUrl] = useState(initialUrl);
     const [status, setStatus] = useState<'idle' | 'checking' | 'success' | 'error'>('idle');
     const [errorMsg, setErrorMsg] = useState('');
-    const [discoveredServers, setDiscoveredServers] = useState<any[]>([]);
+    const [discoveredServers, setDiscoveredServers] = useState<DiscoveredServer[]>([]);
 
     React.useEffect(() => {
         if (window.electron) {

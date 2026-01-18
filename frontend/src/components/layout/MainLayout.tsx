@@ -474,7 +474,7 @@ const MainLayout: React.FC = () => {
     };
  
     // Fetch public system settings (for system notice)
-    const { data: systemSettings } = useQuery<Record<string, any>>({
+    const { data: systemSettings } = useQuery<Record<string, string>>({
         queryKey: ['public-settings'],
         queryFn: async () => (await api.get('/admin/public-settings')).data,
         enabled: !!token,

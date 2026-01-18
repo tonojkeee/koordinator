@@ -40,7 +40,8 @@ export const TextArea = React.memo<TextAreaProps>(({
   ...props
 }) => {
   // Generate unique ID if not provided
-  const textareaId = id || React.useId();
+  const generatedId = React.useId();
+  const textareaId = id || generatedId;
 
   return (
     <div className={cn('space-y-1.5', fullWidth && 'w-full')}>

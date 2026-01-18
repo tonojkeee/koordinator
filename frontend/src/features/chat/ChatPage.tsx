@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useLayoutEffect, startTransition } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from '@tanstack/react-query';
 import api from '../../api/client';
@@ -387,14 +387,16 @@ const ChatPage: React.FC = () => {
 
     // Reset state when channelId changes
     const prevChannelIdRef = useRef(channelId);
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (prevChannelIdRef.current !== channelId) {
-            setMessages([]);
-            setInitialLastReadId(null);
-            setActiveThread(null);
-            setShowParticipants(true);
-            isInitialLoadRef.current = true;
-            prevChannelIdRef.current = channelId;
+            startTransition(() => {
+                setMessages([]);
+                setInitialLastReadId(null);
+                setActiveThread(null);
+                setShowParticipants(true);
+                isInitialLoadRef.current = true;
+                prevChannelIdRef.current = channelId;
+            });
         }
     }, [channelId]);
 

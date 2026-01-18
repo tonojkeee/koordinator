@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useLayoutEffect, startTransition } from 'react';
 import { Upload, File } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useUploadAndShare } from '../boardApi';
@@ -28,10 +28,12 @@ const SendDocumentModal: React.FC<SendDocumentModalProps> = ({ isOpen, onClose, 
     const [file, setFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (preSelectedFile) {
-            setFile(preSelectedFile);
-            setTitle(prev => prev || preSelectedFile.name.split('.').slice(0, -1).join('.'));
+            startTransition(() => {
+                setFile(preSelectedFile);
+                setTitle(prev => prev || preSelectedFile.name.split('.').slice(0, -1).join('.'));
+            });
         }
     }, [preSelectedFile]);
 

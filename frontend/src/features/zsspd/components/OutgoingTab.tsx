@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { ZsspdDirection, ZsspdStatus } from '../types';
 import type { ZsspdPackage, ZsspdPackageCreate } from '../types';
+import type { User } from '../../../types';
 import { useToast } from '../../../design-system';
 import PackageDetailsModal from './PackageDetailsModal';
 import api from '../../../api/client';
@@ -51,7 +52,7 @@ const OutgoingTab: React.FC<OutgoingTabProps> = ({ isModalOpen, onClose }) => {
     });
 
     const filteredUsers = recipient
-        ? (users || []).filter((u: any) =>
+        ? (users || []).filter((u: User) =>
             u.username.toLowerCase().includes(recipient.toLowerCase()) ||
             (u.full_name && u.full_name.toLowerCase().includes(recipient.toLowerCase())) ||
             (u.email && u.email.toLowerCase().includes(recipient.toLowerCase()))
@@ -307,7 +308,7 @@ const OutgoingTab: React.FC<OutgoingTabProps> = ({ isModalOpen, onClose }) => {
 
                                         {showSuggestions && filteredUsers.length > 0 && (
                                             <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-slate-100 z-50 py-1.5 animate-in fade-in slide-in-from-top-2 duration-200">
-                                                {filteredUsers.map((u: any) => (
+                                                {filteredUsers.map((u: User) => (
                                                     <button
                                                         key={u.id}
                                                         type="button"
