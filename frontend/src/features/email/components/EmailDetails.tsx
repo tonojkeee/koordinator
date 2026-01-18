@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { emailService, type EmailMessage, type EmailFolder, type EmailMessageUpdate } from '../emailService';
 import { Paperclip, Clock, Download, Star, AlertCircle, Folder, Trash2, FolderInput, Reply, Forward, Printer, FileText } from 'lucide-react';
-import Avatar from '../../design-system';
+import { Avatar } from '../../../design-system';
 import DOMPurify from 'dompurify';
 
 interface EmailDetailsProps {

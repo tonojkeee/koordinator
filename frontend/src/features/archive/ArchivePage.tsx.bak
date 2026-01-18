@@ -21,22 +21,18 @@ import {
     X,
     HardDrive,
     FileIcon,
-    Image as ImageIcon,
-    Folder as FolderIcon,
-    Archive as ArchiveIcon,
-    Globe
+    Image as ImageIcon
 } from 'lucide-react';
 import api from '../../api/client';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useConfigStore } from '../../store/useConfigStore';
-import { useToast } from '../../design-system';
+import { useToast } from '../design-system';
 import { useTranslation } from 'react-i18next';
 import type { User } from '../../types';
 import { useDocumentViewer } from '../board/store/useDocumentViewer';
 import { formatDate, formatSize } from './utils';
 import type { ArchiveFolder, ArchiveFile, ArchiveItem } from './types';
 import { ArchiveFolderListRow, ArchiveFileListRow } from './components/ArchiveListRow';
-import { useContextMenu } from '../../hooks/useContextMenu';
 
 
 const RenameModal: React.FC<{
@@ -360,14 +356,14 @@ const ArchiveFolderItem: React.FC<{
     onCut: (items: { id: number, type: 'file' | 'folder' }[]) => void;
     onPaste: () => void;
     clipboard: { action: 'copy' | 'cut'; items: { id: number; type: 'file' | 'folder' }[] } | null;
-    selectedItems: { id: number; type: 'file' | 'folder' }[];
+    selectedItems: { id: number, type: 'file' | 'folder' }[];
     currentUserId: number | undefined;
     userRole: string | undefined;
     userUnitId: number | null | undefined;
     onMouseEnter?: () => void;
     onMouseLeave?: () => void;
-    onRename?: (item: { id: number; type: 'file' | 'folder'; name: string }) => void;
-    onProperties?: (item: { id: number; type: 'file' | 'folder' }) => void;
+    onRename?: (folder: ArchiveFolder) => void;
+    onProperties?: (folder: ArchiveFolder) => void;
 }> = ({ folder, index, isSelected, selectionCount, onNavigate, onClick, onDelete, onCopy, onCut, onPaste, clipboard, selectedItems, currentUserId, userRole, userUnitId, onMouseEnter, onMouseLeave, onRename, onProperties }) => {
     const { t } = useTranslation();
     // Delete permission: admin OR same unit OR owner

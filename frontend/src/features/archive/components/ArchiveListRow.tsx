@@ -6,8 +6,6 @@ import {
     FileText,
     Image as ImageIcon,
     FileCode,
-    Clock,
-    User as UserIcon,
     Folder as FolderIcon,
     Trash2
 } from 'lucide-react';
@@ -34,11 +32,11 @@ interface ArchiveFolderListRowProps {
     userUnitId: number | null | undefined;
     onMouseEnter?: () => void;
     onMouseLeave?: () => void;
-    onRename?: (folder: ArchiveFolder) => void;
-    onProperties?: (folder: ArchiveFolder) => void;
+    onRename?: (item: { id: number; type: 'file' | 'folder'; name: string }) => void;
+    onProperties?: (item: { id: number; type: 'file' | 'folder' }) => void;
 }
 
-export const ArchiveFolderListRow: React.FC<ArchiveFolderListRowProps> = ({
+export const ArchiveFolderItem: React.FC<ArchiveFolderListRowProps> = ({
     folder,
     index,
     isSelected,
@@ -84,8 +82,8 @@ export const ArchiveFolderListRow: React.FC<ArchiveFolderListRowProps> = ({
         if (id === 'cut') onCut(isSelected && selectionCount > 1 ? selectedItems : [{ id: folder.id, type: 'folder' }]);
         if (id === 'paste') onPaste();
         if (id === 'delete') onDelete(folder);
-        if (id === 'rename' && onRename) onRename(folder);
-        if (id === 'properties' && onProperties) onProperties(folder);
+        if (id === 'rename' && onRename) onRename({ id: folder.id, type: 'folder', name: folder.name });
+        if (id === 'properties' && onProperties) onProperties({ id: folder.id, type: 'folder' });
     });
 
     return (
@@ -149,11 +147,11 @@ interface ArchiveFileListRowProps {
     userUnitId: number | null | undefined;
     onMouseEnter?: () => void;
     onMouseLeave?: () => void;
-    onRename?: (file: ArchiveFile) => void;
-    onProperties?: (file: ArchiveFile) => void;
+    onRename?: (item: { id: number; type: 'file' | 'folder'; name: string }) => void;
+    onProperties?: (item: { id: number; type: 'file' | 'folder' }) => void;
 }
 
-export const ArchiveFileListRow: React.FC<ArchiveFileListRowProps> = ({
+export const ArchiveFileItem: React.FC<ArchiveFileListRowProps> = ({
     file,
     index,
     isSelected,
@@ -198,8 +196,8 @@ export const ArchiveFileListRow: React.FC<ArchiveFileListRowProps> = ({
         if (id === 'cut') onCut(isSelected && selectionCount > 1 ? selectedItems : [{ id: file.id, type: 'file' }]);
         if (id === 'paste') onPaste();
         if (id === 'delete') onDelete(file);
-        if (id === 'rename' && onRename) onRename(file);
-        if (id === 'properties' && onProperties) onProperties(file);
+        if (id === 'rename' && onRename) onRename({ id: file.id, type: 'file', name: file.title });
+        if (id === 'properties' && onProperties) onProperties({ id: file.id, type: 'file' });
     });
 
     return (

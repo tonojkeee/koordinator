@@ -10,7 +10,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useUnreadStore } from '../../store/useUnreadStore';
 import { abbreviateRank } from '../../utils/formatters';
 import { Modal, Input, TextArea, Button } from '../../design-system';
-import Avatar from '../design-system';
+import { Avatar } from '../../design-system';
 import MuteModal from './MuteModal';
 
 

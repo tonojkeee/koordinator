@@ -13,8 +13,8 @@ import {
 } from 'recharts';
 import { ClipboardList, CheckCircle2, Clock, AlertCircle, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { useToast } from '../design-system';
-import Avatar from '../design-system';
+import { useToast } from '../../design-system';
+import { Avatar } from '../../design-system';
 import type { User, Unit, AuditLog, SystemSetting } from '../../types';
 import type { Task } from '../tasks/types';
 import { Header } from '../../design-system';

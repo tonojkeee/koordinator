@@ -14,12 +14,12 @@ import {
 } from 'lucide-react';
 import { ZsspdDirection, ZsspdStatus } from '../types';
 import type { ZsspdPackage, ZsspdPackageCreate } from '../types';
-import { useToast } from '../../design-system';
+import { useToast } from '../../../design-system';
 import PackageDetailsModal from './PackageDetailsModal';
 import api from '../../../api/client';
 import { zsspdService } from '../zsspdService';
 import { useAuthStore } from '../../../store/useAuthStore';
-import Avatar from '../../design-system';
+import { Avatar } from '../../../design-system';
 import { formatName, abbreviateRank } from '../../../utils/formatters';
 
 interface OutgoingTabProps {

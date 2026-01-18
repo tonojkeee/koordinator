@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Upload, File } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useUploadAndShare } from '../boardApi';
-import { useToast } from '../../design-system';
+import { useToast } from '../../../design-system';
 import { Modal } from '../../../design-system/components/Modal';
 import { Input } from '../../../design-system/components/Input';
 import { TextArea } from '../../../design-system/components/TextArea';

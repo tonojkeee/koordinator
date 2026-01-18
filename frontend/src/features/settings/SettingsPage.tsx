@@ -5,9 +5,9 @@ import { useTranslation } from 'react-i18next';
 import { useMutation } from '@tanstack/react-query';
 import api from '../../api/client';
 import { AxiosError } from 'axios';
-import { useToast } from '../design-system';
+import { useToast } from '../../design-system';
 
-import Avatar from '../design-system';
+import { Avatar } from '../../design-system';
 import { Header, Modal, Input, Button } from '../../design-system';
 
 const SettingsPage: React.FC = () => {

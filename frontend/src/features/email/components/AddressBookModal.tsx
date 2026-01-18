@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { User } from '../../../types';
 import { emailService } from '../emailService';
 import { Search, Mail, Book } from 'lucide-react';
-import Avatar from '../../design-system';
+import { Avatar } from '../../../design-system';
 import { useAuthStore } from '../../../store/useAuthStore';
 import { useConfigStore } from '../../../store/useConfigStore';
 import api from '../../../api/client';

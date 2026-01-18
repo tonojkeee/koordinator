@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { X, Upload, File, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useUploadDocument } from '../boardApi';
-import { useToast } from '../../design-system';
+import { useToast } from '../../../design-system';
 
 interface UploadModalProps {
     isOpen: boolean;

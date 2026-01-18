@@ -17,7 +17,7 @@ import { useTranslation } from 'react-i18next';
 import ChannelSidebar from './ChannelSidebar';
 
 import ParticipantsList from './ParticipantsList';
-import Avatar from '../design-system';
+import { Avatar } from '../../design-system';
 import MuteModal from './MuteModal';
 import { useContextMenu } from '../../hooks/useContextMenu';
 import { type ContextMenuItem } from '../../types';
