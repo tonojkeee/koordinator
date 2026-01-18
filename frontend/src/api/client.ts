@@ -99,10 +99,10 @@ api.interceptors.response.use(
             isRefreshing = true;
 
             const { refreshToken } = getTokens();
-
+            
             if (refreshToken) {
                 try {
-                    const res = await axios.post(`${api.defaults.baseURL}/auth/refresh?refresh_token=${refreshToken}`);
+                    const res = await axios.post(`${api.defaults.baseURL}/auth/refresh`, { refresh_token: refreshToken });
                     const { access_token, refresh_token } = res.data;
 
                     // Update localStorage manually so next requests get it

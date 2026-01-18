@@ -66,6 +66,7 @@ const EmailDetails: React.FC<EmailDetailsProps> = ({ emailId, customFolders, onE
     };
 
     const handleDelete = async () => {
+        // Using native confirm() as a simple confirmation - TODO: Replace with custom modal for better UX
         if (confirm('Удалить письмо?')) {
             onDelete(emailId);
         }
@@ -246,7 +247,7 @@ const EmailDetails: React.FC<EmailDetailsProps> = ({ emailId, customFolders, onE
                                         <div className="text-[10px] font-bold text-slate-400">{Math.round(att.file_size / 1024)} KB</div>
                                     </div>
                                     <a
-                                        href={`/api/email/attachments/${att.id}/download?token=${localStorage.getItem('token')}`} // Example placeholder URL
+                                        href={`/api/email/attachments/${att.id}/download`}
                                         className="p-2 text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
                                         title="Скачать"
                                         target="_blank"

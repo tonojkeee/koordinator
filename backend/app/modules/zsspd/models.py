@@ -54,7 +54,7 @@ class ZsspdFile(Base):
     __tablename__ = "zsspd_files"
     
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    package_id: Mapped[int] = mapped_column(ForeignKey("zsspd_packages.id"), nullable=False)
+    package_id: Mapped[int] = mapped_column(ForeignKey("zsspd_packages.id"), nullable=False, index=True)
     
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     file_path: Mapped[str] = mapped_column(String(512), nullable=False)
@@ -70,8 +70,8 @@ class ZsspdRecipient(Base):
     __tablename__ = "zsspd_recipients"
     
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    package_id: Mapped[int] = mapped_column(ForeignKey("zsspd_packages.id"), nullable=False)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    package_id: Mapped[int] = mapped_column(ForeignKey("zsspd_packages.id"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     
     received_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

@@ -95,6 +95,27 @@ async def get_emails(
     result = await db.execute(stmt)
     return result.scalars().all()
 
+async def get_email_attachment(db: AsyncSession, attachment_id: int, user_id: int) -> Optional[EmailAttachment]:
+    """Get email attachment and verify ownership"""
+    stmt = select(EmailAttachment).where(EmailAttachment.id == attachment_id)
+    result = await db.execute(stmt)
+    attachment = result.scalar_one_or_none()
+    
+    if not attachment:
+        return None
+    
+    # Verify ownership by checking if the attachment belongs to a message owned by the user
+    message = await get_email_by_id(db, attachment.message_id, None)
+    if not message:
+        return None
+    
+    # Get the account associated with the message
+    account = await get_user_email_account(db, user_id)
+    if not account or message.account_id != account.id:
+        return None
+    
+    return attachment
+
 async def get_email_by_id(db: AsyncSession, message_id: int, account_id: int) -> Optional[EmailMessage]:
     stmt = select(EmailMessage).where(
         EmailMessage.id == message_id,

@@ -78,7 +78,6 @@ const DocumentViewer: React.FC = () => {
         };
 
         fetchAndRender();
-        fetchAndRender();
     }, [isOpen, url, isOffice, isDocx, isExcel, isLoadable, isText]);
 
     if (!isOpen || !url) return null;
@@ -155,13 +154,12 @@ const DocumentViewer: React.FC = () => {
                         ) : isDocx ? (
                             <div
                                 className="p-12 md:p-20 max-w-4xl mx-auto prose prose-slate prose-indigo selection:bg-indigo-100"
-                                dangerouslySetInnerHTML={{ 
-                                    __html: DOMPurify.sanitize(htmlContent, {
-                                        ALLOWED_TAGS: ['p', 'div', 'span', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'ul', 'ol', 'li', 'table', 'tr', 'td', 'th', 'thead', 'tbody'],
-                                        ALLOWED_ATTR: ['class', 'style'],
-                                        ALLOW_DATA_ATTR: false
-                                    })
-                                }}
+                                 dangerouslySetInnerHTML={{ 
+                                     __html: DOMPurify.sanitize(htmlContent, {
+                                         ALLOWED_TAGS: ['p', 'div', 'span', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'table', 'tr', 'td', 'th', 'thead', 'tbody', 'ul', 'ol', 'li'],
+                                         ALLOWED_ATTR: ['class']
+                                     })
+                                 }}
                             />
                         ) : isExcel ? (
                             <div className="p-4 md:p-8">

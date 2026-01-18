@@ -1,14 +1,22 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
+import os
+import mimetypes
 
 from app.core.database import get_db
 from app.modules.auth.models import User
 from app.modules.auth.router import get_current_user
 from app.modules.email import service
 from app.modules.email import schemas
+from app.core.file_security import safe_file_path
+from app.core.config import get_settings
 
+settings = get_settings()
 router = APIRouter(prefix="/email", tags=["Email"])
+
+UPLOAD_DIR = "uploads/email_attachments"
 
 @router.get("/account", response_model=schemas.EmailAccount)
 async def get_my_account(
@@ -133,3 +141,37 @@ async def delete_folder(
         raise HTTPException(status_code=404, detail="Email account not set up")
     await service.delete_folder(db, folder_id, account.id)
     return {"status": "success"}
+
+@router.get("/attachments/{attachment_id}/download")
+async def download_email_attachment(
+    attachment_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Securely download email attachment if authorized"""
+    attachment = await service.get_email_attachment(db, attachment_id, current_user.id)
+    if not attachment:
+        raise HTTPException(status_code=404, detail="Attachment not found or not authorized")
+    
+    # Secure path validation - prevents path traversal
+    try:
+        safe_path = safe_file_path(attachment.file_path, UPLOAD_DIR)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=403, detail="Invalid file path")
+    
+    if not os.path.exists(safe_path):
+        raise HTTPException(status_code=404, detail="File not found on disk")
+    
+    # Determine filename and media type
+    mime_type, _ = mimetypes.guess_type(safe_path)
+    if not mime_type:
+        mime_type = "application/octet-stream"
+    
+    # Use attachment filename for download
+    return FileResponse(
+        path=safe_path,
+        media_type=mime_type,
+        filename=attachment.filename
+    )

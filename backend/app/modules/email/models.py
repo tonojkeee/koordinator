@@ -84,7 +84,7 @@ class EmailAttachment(Base):
     __tablename__ = "email_attachments"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    message_id: Mapped[int] = mapped_column(ForeignKey("email_messages.id"), nullable=False)
+    message_id: Mapped[int] = mapped_column(ForeignKey("email_messages.id"), nullable=False, index=True)
     
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     content_type: Mapped[str] = mapped_column(String(100), nullable=True)

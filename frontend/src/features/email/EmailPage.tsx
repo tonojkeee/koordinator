@@ -25,13 +25,16 @@ const EmailPage: React.FC = () => {
 
     // Initialize Account and Folders
     useEffect(() => {
-        const init = async () => {
-            try {
-                const acc = await emailService.getAccount();
-                setAccount(acc);
-                fetchFolders();
-            } catch (err) {
-                console.error("Could not load email account", err);
+    const init = async () => {
+        setLoading(true);
+        try {
+            const acc = await emailService.getAccount();
+            setAccount(acc);
+            fetchFolders();
+            } catch {
+                addToast({ type: 'error', title: 'Ошибка загрузки', message: 'Не удалось загрузить почтовый аккаунт' });
+            } finally {
+                setLoading(false);
             }
         };
         init();
@@ -60,8 +63,8 @@ const EmailPage: React.FC = () => {
         try {
             const f = await emailService.getFolders();
             setCustomFolders(f || []);
-        } catch (err) {
-            console.error(err);
+        } catch {
+            addToast({ type: 'error', title: 'Ошибка', message: 'Не удалось загрузить папки' });
         }
     };
 
