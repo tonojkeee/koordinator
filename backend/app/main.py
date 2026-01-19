@@ -10,6 +10,7 @@ import os
 import logging
 from app.core.config import get_settings
 from app.core.database import init_db, engine, get_db
+from app.core.events import event_bus
 from app.modules.auth.router import router as auth_router
 from app.modules.chat.router import router as chat_router
 from app.modules.board.router import router as board_router
