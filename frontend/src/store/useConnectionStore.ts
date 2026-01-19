@@ -15,7 +15,7 @@ export const useConnectionStore = create<ConnectionState>((set): ConnectionState
 }));
 
 // Setup window listeners for network status with cleanup on unmount
-let cleanupHandlers: (() => void)[] | null = null;
+let cleanupHandlers: (() => void) | null = null;
 
 export const setupConnectionListeners = (): void => {
     // Remove previous handlers

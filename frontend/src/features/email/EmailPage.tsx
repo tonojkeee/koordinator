@@ -7,10 +7,12 @@ import AddressBookModal from './components/AddressBookModal';
 import CreateFolderModal from './components/CreateFolderModal';
 import { Inbox, Send, Archive, Trash2, Plus, Mail, RefreshCw, Book, Folder, Star, AlertCircle, Search } from 'lucide-react';
 import { Button } from '../../design-system';
+import { useToast } from '../../design-system';
 import { useTranslation } from 'react-i18next';
 
 const EmailPage: React.FC = () => {
     const { t } = useTranslation();
+    const { addToast } = useToast();
     const [account, setAccount] = useState<EmailAccount | null>(null);
     const [emails, setEmails] = useState<EmailMessageList[]>([]);
     const [customFolders, setCustomFolders] = useState<EmailFolder[]>([]);
