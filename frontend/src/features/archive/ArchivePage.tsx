@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import api from '../../api/client';
 import { useAuthStore } from '../../store/useAuthStore';
-import { useToast } from '../../design-system';
+import { useToast, Header, Button } from '../../design-system';
 import { useTranslation } from 'react-i18next';
 import type { User, Unit, ContextMenuItem } from '../../types';
 import { useDocumentViewer } from '../board/store/useDocumentViewer';
@@ -1559,47 +1559,27 @@ const ArchivePage: React.FC = () => {
                 </div>
             )}
 
-            {/* Premium Tiered Glass Header */}
-            <header className="px-6 pt-4 pb-2 shrink-0 z-20 sticky top-0 pointer-events-none">
-                <div className="bg-white/80 backdrop-blur-xl border border-white/60 p-4 rounded-2xl shadow-2xl shadow-slate-200/50 pointer-events-auto transition-all duration-300 flex flex-col gap-4">
-
-                    {/* Top Tier: Identity & Global Actions */}
-                    <div className="flex items-center justify-between gap-4">
-                        {/* Identity */}
-                        <div className="flex items-center gap-3">
-                            <div className="p-2.5 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-200 hover:scale-105 transition-transform duration-300">
-                                <ArchiveIcon size={20} />
-                            </div>
-                            <div>
-                                <h1 className="text-xl font-black text-slate-900 leading-none tracking-tight">
-                                    {t('archive.title') || 'Архив'}
-                                </h1>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 ml-0.5">
-                                    {activeTab === 'mine'
-                                        ? (user?.unit_name || t('archive.myDepartment'))
-                                        : (currentUnitId && units?.find(u => u.id === currentUnitId)?.name || t('archive.allDepartments'))}
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Actions Toolbar */}
+            {/* Header */}
+            <div className="px-6 pt-4 pb-2 shrink-0 z-20 sticky top-0 pointer-events-none">
+                <Header
+                    title={activeTab === 'mine'
+                        ? (user?.unit_name || t('archive.myDepartment'))
+                        : (currentUnitId && units?.find(u => u.id === currentUnitId)?.name || t('archive.allDepartments'))}
+                    subtitle={t('archive.title') || 'Архив'}
+                    icon={<ArchiveIcon size={20} />}
+                    iconColor="indigo"
+                    searchPlaceholder={t('archive.searchPlaceholder') || "Поиск..."}
+                    searchValue={searchQuery}
+                    onSearchChange={(e) => setSearchQuery(e.target.value)}
+                    onSearchClear={() => setSearchQuery('')}
+                    tabs={[
+                        { id: 'global', label: t('archive.allDepartments') },
+                        { id: 'mine', label: t('archive.myDepartment') }
+                    ]}
+                    activeTab={activeTab}
+                    onTabChange={(tabId) => handleTabChange(tabId as 'global' | 'mine')}
+                    actions={
                         <div className="flex items-center gap-2">
-                            {/* Search */}
-                            <div className="relative group w-80 hidden md:block">
-                                <div className="absolute inset-0 bg-indigo-500/5 rounded-xl blur-md group-hover:bg-indigo-500/10 transition-colors" />
-                                <div className="relative flex items-center gap-2 bg-white/50 border border-slate-200/50 rounded-xl p-0.5 transition-all focus-within:bg-white focus-within:shadow-md focus-within:border-indigo-100 focus-within:ring-4 focus-within:ring-indigo-100">
-                                    <Search className="ml-2.5 text-slate-400" size={16} />
-                                    <input
-                                        ref={searchInputRef}
-                                        type="text"
-                                        placeholder={t('archive.searchPlaceholder') || "Поиск..."}
-                                        className="w-full bg-transparent border-none focus:ring-0 text-slate-800 placeholder:text-slate-400 font-bold text-sm h-8"
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-
                             {/* View Toggle */}
                             <div className="flex bg-slate-100/80 p-0.5 rounded-xl border border-slate-200/50 h-9 items-center">
                                 <button
@@ -1616,103 +1596,77 @@ const ArchivePage: React.FC = () => {
                                 </button>
                             </div>
 
-                            <div className="w-px h-6 bg-slate-200 mx-1 hidden sm:block" />
-
-                            {/* Primary Actions */}
                             {canInteract && (
                                 <>
-                                    <button
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        icon={<FolderPlus size={16} />}
                                         onClick={() => setIsFolderModalOpen(true)}
-                                        className="h-9 w-9 flex items-center justify-center bg-white text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 active:scale-95 transition-all shadow-sm group"
                                         title={t('archive.createFolder')}
-                                    >
-                                        <FolderPlus size={18} className="group-hover:text-amber-500 transition-colors" />
-                                    </button>
-
-                                    <button
+                                    />
+                                    <Button
+                                        variant="primary"
+                                        size="sm"
+                                        icon={<Plus size={16} />}
                                         onClick={() => setIsUploadModalOpen(true)}
-                                        className="flex items-center gap-2 px-4 h-9 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-indigo-600/30 transition-all active:scale-95 hover:-translate-y-0.5"
                                     >
-                                        <Plus size={18} />
                                         <span className="hidden sm:inline">{t('archive.upload')}</span>
-                                    </button>
-
+                                    </Button>
                                     {clipboard && (
-                                        <button
+                                        <Button
+                                            variant="primary"
+                                            size="sm"
+                                            icon={<ClipboardList size={16} />}
                                             onClick={handlePasteItems}
-                                            className="h-9 w-9 flex items-center justify-center bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl shadow-lg shadow-emerald-500/30 transition-all active:scale-95"
                                             title={`Вставить (${clipboard.items.length})`}
-                                        >
-                                            <ClipboardList size={18} />
-                                        </button>
+                                            className="bg-emerald-500 hover:bg-emerald-600"
+                                        />
                                     )}
                                 </>
                             )}
                         </div>
-                    </div>
+                    }
+                    sticky={false}
+                    className="pointer-events-auto"
+                />
+            </div>
 
-                    {/* Bottom Tier: Context Navigation */}
-                    <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-[-8px]">
-                        {/* Tabs (Left Balanced) */}
-                        <div className="flex bg-slate-100/50 p-1 rounded-xl border border-slate-200/50">
-                            {[
-                                { id: 'global', icon: Globe, label: t('archive.allDepartments') },
-                                { id: 'mine', icon: Building2, label: t('archive.myDepartment') }
-                            ].map(tab => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => handleTabChange(tab.id as 'global' | 'mine')}
-                                    className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 ${activeTab === tab.id
-                                        ? 'bg-white text-indigo-600 shadow-md'
-                                        : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
-                                        }`}
-                                >
-                                    <tab.icon size={13} />
-                                    <div className="w-px h-3 bg-current opacity-20" />
-                                    <span>{tab.label}</span>
-                                </button>
+            {/* Breadcrumbs */}
+            {path.length > 1 && (
+                <div className="px-6 pb-4">
+                    <div className="flex items-center gap-2 bg-slate-50/50 p-2 rounded-xl border border-slate-200/50 max-w-xl">
+                        <button
+                            onClick={() => {
+                                if (path.length > 1) {
+                                    const parentPath = path[path.length - 2];
+                                    handleBreadcrumbClick(parentPath, path.length - 2);
+                                }
+                            }}
+                            className="h-7 w-7 flex items-center justify-center rounded-lg bg-white text-slate-600 hover:text-indigo-600 shadow-sm transition-all"
+                        >
+                            <ArrowUp size={13} />
+                        </button>
+                        <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide">
+                            {path.map((p, i) => (
+                                <React.Fragment key={i}>
+                                    {i > 0 && <ChevronRight size={10} className="text-slate-300 shrink-0" />}
+                                    <button
+                                        onClick={() => handleBreadcrumbClick(p, i)}
+                                        className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-all text-xs font-bold shrink-0 ${i === path.length - 1
+                                            ? 'bg-white text-slate-800 shadow-sm border border-slate-200/50'
+                                            : 'text-slate-500 hover:text-indigo-600 hover:bg-white/50'
+                                            }`}
+                                    >
+                                        {i === 0 ? <Home size={11} className="opacity-70" /> : <FolderIcon size={11} className="text-amber-400" />}
+                                        <span>{i === 0 ? (activeTab === 'global' ? 'Все' : 'Мой') : p.name}</span>
+                                    </button>
+                                </React.Fragment>
                             ))}
-                        </div>
-
-                        {/* Breadcrumbs (Right Balanced) */}
-                        <div className="flex items-center gap-2 bg-slate-50/50 p-1 rounded-xl border border-slate-200/50 max-w-xl overflow-hidden">
-                            <button
-                                onClick={() => {
-                                    if (path.length > 1) {
-                                        const parentPath = path[path.length - 2];
-                                        handleBreadcrumbClick(parentPath, path.length - 2);
-                                    }
-                                }}
-                                disabled={path.length <= 1}
-                                className={`h-7 w-7 flex items-center justify-center rounded-lg transition-all ${path.length <= 1
-                                    ? 'text-slate-300 cursor-not-allowed'
-                                    : 'bg-white text-slate-600 hover:text-indigo-600 shadow-sm'
-                                    }`}
-                            >
-                                <ArrowUp size={13} />
-                            </button>
-
-                            <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide mask-fade-right px-1.5">
-                                {path.map((p, i) => (
-                                    <React.Fragment key={i}>
-                                        {i > 0 && <ChevronRight size={10} className="text-slate-300 shrink-0" />}
-                                        <button
-                                            onClick={() => handleBreadcrumbClick(p, i)}
-                                            className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg transition-all text-xs font-bold shrink-0 ${i === path.length - 1
-                                                ? 'bg-white text-slate-800 shadow-sm border border-slate-200/50'
-                                                : 'text-slate-500 hover:text-indigo-600 hover:bg-white/50'
-                                                }`}
-                                        >
-                                            {i === 0 ? <Home size={11} className="opacity-70" /> : <FolderIcon size={11} className="text-amber-400" />}
-                                            <span>{i === 0 ? (activeTab === 'global' ? 'Все' : 'Мой') : p.name}</span>
-                                        </button>
-                                    </React.Fragment>
-                                ))}
-                            </div>
                         </div>
                     </div>
                 </div>
-            </header>
+            )}
 
             {/* Main Content */}
             <div

@@ -9,3 +9,4 @@ export { typography, type TypographyToken } from './typography';
 export { animations, type AnimationToken } from './animations';
 export { shadows, type ShadowToken } from './shadows';
 export { spacing, type SpacingToken } from './spacing';
+export { effects, type EffectsToken } from './effects';

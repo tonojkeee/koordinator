@@ -1,4 +1,4 @@
-from sqlalchemy import select, update, desc, and_
+from sqlalchemy import select, update, desc, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
@@ -554,13 +554,13 @@ async def get_folders(db: AsyncSession, account_id: int) -> List[EmailFolder]:
     from sqlalchemy import func
 
     stmt = select(EmailFolder, func.count(EmailMessage.id).label('count')).where(
-        and_(
-            EmailFolder.account_id == account_id,
-            EmailFolder.is_deleted == False
-        )
+        EmailFolder.account_id == account_id
     ).outerjoin(
-        EmailFolder.messages,
-        EmailMessage.is_deleted == False
+        EmailMessage, 
+        and_(
+            EmailFolder.id == EmailMessage.folder_id,
+            EmailMessage.is_deleted == False
+        )
     ).group_by(EmailFolder.id)
 
     result = await db.execute(stmt)
@@ -575,6 +575,110 @@ async def get_folders(db: AsyncSession, account_id: int) -> List[EmailFolder]:
             unread_count=count if folder_obj.is_system else 0
         ))
     return folders
+
+
+async def get_email_stats(db: AsyncSession, account_id: int) -> dict:
+    """Get email statistics for account"""
+    
+    # Count inbox messages (not sent, not deleted, no folder)
+    inbox_count = await db.scalar(
+        select(func.count(EmailMessage.id)).where(
+            and_(
+                EmailMessage.account_id == account_id,
+                EmailMessage.is_sent == False,
+                EmailMessage.is_deleted == False,
+                EmailMessage.folder_id.is_(None)
+            )
+        )
+    )
+    
+    # Count sent messages
+    sent_count = await db.scalar(
+        select(func.count(EmailMessage.id)).where(
+            and_(
+                EmailMessage.account_id == account_id,
+                EmailMessage.is_sent == True,
+                EmailMessage.is_deleted == False
+            )
+        )
+    )
+    
+    # Count trash messages
+    trash_count = await db.scalar(
+        select(func.count(EmailMessage.id)).where(
+            and_(
+                EmailMessage.account_id == account_id,
+                EmailMessage.is_deleted == True
+            )
+        )
+    )
+    
+    # Count archived messages
+    archived_count = await db.scalar(
+        select(func.count(EmailMessage.id)).where(
+            and_(
+                EmailMessage.account_id == account_id,
+                EmailMessage.is_archived == True,
+                EmailMessage.is_deleted == False
+            )
+        )
+    )
+    
+    # Count starred messages
+    starred_count = await db.scalar(
+        select(func.count(EmailMessage.id)).where(
+            and_(
+                EmailMessage.account_id == account_id,
+                EmailMessage.is_starred == True,
+                EmailMessage.is_deleted == False
+            )
+        )
+    )
+    
+    # Count important messages
+    important_count = await db.scalar(
+        select(func.count(EmailMessage.id)).where(
+            and_(
+                EmailMessage.account_id == account_id,
+                EmailMessage.is_important == True,
+                EmailMessage.is_deleted == False
+            )
+        )
+    )
+    
+    # Count total messages (not deleted)
+    total_count = await db.scalar(
+        select(func.count(EmailMessage.id)).where(
+            and_(
+                EmailMessage.account_id == account_id,
+                EmailMessage.is_deleted == False
+            )
+        )
+    )
+    
+    # Count unread messages (only incoming, not sent)
+    unread_count = await db.scalar(
+        select(func.count(EmailMessage.id)).where(
+            and_(
+                EmailMessage.account_id == account_id,
+                EmailMessage.is_read == False,
+                EmailMessage.is_deleted == False,
+                EmailMessage.is_sent == False  # Only count incoming messages
+            )
+        )
+    )
+    
+    return {
+        "inbox": inbox_count or 0,
+        "sent": sent_count or 0,
+        "important": important_count or 0,
+        "starred": starred_count or 0,
+        "archived": archived_count or 0,
+        "trash": trash_count or 0,
+        "total": total_count or 0,
+        "unread": unread_count or 0
+    }
+
 
 async def create_folder(db: AsyncSession, account_id: int, folder_data: EmailFolderCreate) -> EmailFolder:
     # Generate slug
@@ -604,3 +708,36 @@ async def delete_folder(db: AsyncSession, folder_id: int, account_id: int):
         await db.execute(update(EmailMessage).where(EmailMessage.folder_id == folder_id).values(folder_id=None))
         await db.delete(folder)
         await db.commit()
+
+
+async def get_unread_count(db: AsyncSession, account_id: int) -> dict:
+    """Get total unread count for account (only incoming messages)"""
+    unread_count = await db.scalar(
+        select(func.count(EmailMessage.id)).where(
+            and_(
+                EmailMessage.account_id == account_id,
+                EmailMessage.is_read == False,
+                EmailMessage.is_deleted == False,
+                EmailMessage.is_sent == False  # Only count incoming messages
+            )
+        )
+    )
+    return {"total": unread_count or 0}
+
+
+async def mark_all_as_read(db: AsyncSession, account_id: int) -> dict:
+    """Mark all unread incoming messages as read for account"""
+    result = await db.execute(
+        update(EmailMessage)
+        .where(
+            and_(
+                EmailMessage.account_id == account_id,
+                EmailMessage.is_read == False,
+                EmailMessage.is_deleted == False,
+                EmailMessage.is_sent == False  # Only mark incoming messages
+            )
+        )
+        .values(is_read=True)
+    )
+    await db.commit()
+    return {"marked": result.rowcount}

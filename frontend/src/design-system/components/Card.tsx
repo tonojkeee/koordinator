@@ -1,8 +1,8 @@
 /**
  * Design System - Card Component
  * 
- * Компонент карточки для отображения элементов в grid или list режиме.
- * Поддерживает различные состояния (selected, hoverable) и варианты padding.
+ * Современный компонент карточки с минималистичным дизайном и четкой иерархией.
+ * Основан на принципах современного UI/UX дизайна.
  * 
  * @example
  * <Card>
@@ -21,16 +21,16 @@ import { cva } from 'class-variance-authority';
 import { cn } from '../utils/cn';
 
 const cardVariants = cva(
-  // Base styles
-  'bg-white border rounded-xl transition-all',
+  // Base styles - современный минималистичный подход
+  'bg-white border rounded-xl transition-all duration-200 ease-out',
   {
     variants: {
       selected: {
-        true: 'bg-indigo-50 border-indigo-500 shadow-md shadow-indigo-100 ring-4 ring-indigo-500/5',
-        false: 'border-slate-200/60',
+        true: 'bg-indigo-50 border-indigo-200 ring-2 ring-indigo-500/20',
+        false: 'border-slate-200 hover:border-slate-300',
       },
       hoverable: {
-        true: 'cursor-pointer hover:shadow-lg hover:shadow-indigo-500/5 hover:border-indigo-100',
+        true: 'cursor-pointer hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98]',
         false: '',
       },
       padding: {
@@ -38,12 +38,20 @@ const cardVariants = cva(
         sm: 'p-3',
         md: 'p-4',
         lg: 'p-6',
+        xl: 'p-8',
+      },
+      variant: {
+        default: 'shadow-sm',
+        elevated: 'shadow-md',
+        outlined: 'border-2',
+        ghost: 'border-0 shadow-none bg-transparent',
       },
     },
     defaultVariants: {
       selected: false,
       hoverable: true,
       padding: 'md',
+      variant: 'default',
     },
   }
 );
@@ -51,13 +59,15 @@ const cardVariants = cva(
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   selected?: boolean;
   hoverable?: boolean;
-  padding?: 'none' | 'sm' | 'md' | 'lg';
+  padding?: 'none' | 'sm' | 'md' | 'lg' | 'xl';
+  variant?: 'default' | 'elevated' | 'outlined' | 'ghost';
 }
 
 export const Card = React.memo<CardProps>(({
   selected,
   hoverable,
   padding,
+  variant,
   className,
   children,
   ...props
@@ -65,7 +75,7 @@ export const Card = React.memo<CardProps>(({
   return (
     <div
       className={cn(
-        cardVariants({ selected, hoverable, padding }),
+        cardVariants({ selected, hoverable, padding, variant }),
         className
       )}
       {...props}

@@ -1,11 +1,8 @@
 /**
  * Design System - Header Component
  * 
- * Основной компонент шапки модуля с двухуровневой структурой:
- * - Верхний уровень: иконка, заголовок, поиск, действия
- * - Нижний уровень: навигация по вкладкам
- * 
- * Использует glass effect стилизацию и sticky позиционирование.
+ * Современный компонент заголовка страницы с минималистичным дизайном.
+ * Основан на принципах современного UI/UX дизайна.
  * 
  * @example
  * <Header
@@ -28,11 +25,9 @@
  *     </Button>
  *   }
  * />
- * 
- * Requirements: 1.1-1.6, 16.1
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { cn } from '../utils/cn';
 import { HeaderIcon, type HeaderIconColor } from './HeaderIcon';
 import { SearchInput } from './SearchInput';
@@ -101,6 +96,11 @@ export interface HeaderProps {
   onTabChange?: (tabId: string) => void;
   
   /**
+   * Дополнительные элементы в области табов (справа от табов)
+   */
+  tabsActions?: React.ReactNode;
+  
+  /**
    * Дополнительные CSS классы
    */
   className?: string;
@@ -111,6 +111,50 @@ export interface HeaderProps {
    */
   sticky?: boolean;
 }
+
+/**
+ * Анимированный заголовок с fade-эффектом при изменении
+ */
+const AnimatedTitle: React.FC<{ title: string; className?: string }> = ({ title, className }) => {
+  const [displayTitle, setDisplayTitle] = useState(title);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    if (title !== displayTitle) {
+      setIsAnimating(true);
+      
+      // Fade out
+      const fadeOutTimer = setTimeout(() => {
+        setDisplayTitle(title);
+        // Fade in
+        const fadeInTimer = setTimeout(() => {
+          setIsAnimating(false);
+        }, 150);
+        return () => clearTimeout(fadeInTimer);
+      }, 150);
+      
+      return () => clearTimeout(fadeOutTimer);
+    }
+  }, [title, displayTitle]);
+
+  // Синхронизируем displayTitle с title при первом рендере
+  useEffect(() => {
+    setDisplayTitle(title);
+  }, []);
+
+  return (
+    <h1 
+      className={cn(
+        'text-xl font-semibold text-slate-900 leading-tight truncate transition-all duration-300 ease-in-out',
+        isAnimating && 'opacity-0 transform translate-y-1',
+        !isAnimating && 'opacity-100 transform translate-y-0',
+        className
+      )}
+    >
+      {displayTitle}
+    </h1>
+  );
+};
 
 export const Header = React.memo<HeaderProps>(({
   title,
@@ -125,46 +169,43 @@ export const Header = React.memo<HeaderProps>(({
   tabs,
   activeTab,
   onTabChange,
+  tabsActions,
   className,
   sticky = true,
 }) => {
   return (
     <header
       className={cn(
-        // Glass effect styling (Requirements 1.1)
-        'bg-white/80 backdrop-blur-xl border border-white/60',
-        // Rounded corners and shadow (Requirements 1.2)
-        'rounded-2xl shadow-2xl shadow-slate-200/50',
-        // Padding and spacing - responsive (Requirements 11.1)
-        'p-4 sm:p-6 space-y-3 sm:space-y-4',
-        // Sticky positioning (Requirements 1.3)
+        // Современный минималистичный дизайн
+        'bg-white border border-slate-200 rounded-xl shadow-sm',
+        // Padding и spacing
+        'p-6 space-y-4',
+        // Sticky positioning
         sticky && 'sticky top-0 z-40',
         className
       )}
     >
-      {/* Upper Level: Icon + Title + Search + Actions (Requirements 1.4) */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-        {/* Icon + Title Section - always visible */}
-        <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 w-full sm:w-auto">
-          {/* Module Icon (Requirements 1.5, 1.6) */}
+      {/* Upper Level: Icon + Title + Search + Actions */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+        {/* Icon + Title Section */}
+        <div className="flex items-center gap-4 flex-1 min-w-0">
+          {/* Module Icon */}
           <HeaderIcon icon={icon} color={iconColor} />
           
           {/* Title Section */}
           <div className="flex-1 min-w-0">
+            <AnimatedTitle title={title} />
             {subtitle && (
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest animate-in fade-in slide-in-from-left-1 duration-300">
+              <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0">
                 {subtitle}
               </div>
             )}
-            <h1 className="text-lg sm:text-xl font-black text-slate-900 leading-none tracking-tight truncate">
-              {title}
-            </h1>
           </div>
         </div>
         
-        {/* Search Input (optional) - full width on mobile, fixed width on desktop */}
+        {/* Search Input */}
         {onSearchChange && (
-          <div className="w-full sm:w-auto order-3 sm:order-2">
+          <div className="w-full sm:w-80">
             <SearchInput
               placeholder={searchPlaceholder}
               value={searchValue}
@@ -174,24 +215,28 @@ export const Header = React.memo<HeaderProps>(({
           </div>
         )}
         
-        {/* Actions (optional) - hidden on mobile if search is present */}
+        {/* Actions */}
         {actions && (
-          <div className={cn(
-            "flex items-center gap-2 order-2 sm:order-3",
-            onSearchChange && "hidden sm:flex"
-          )}>
+          <div className="flex items-center gap-2">
             {actions}
           </div>
         )}
       </div>
       
-      {/* Lower Level: Tab Navigation (optional) */}
+      {/* Lower Level: Tab Navigation */}
       {tabs && tabs.length > 0 && (
-        <TabNavigation
-          tabs={tabs}
-          activeTab={activeTab}
-          onTabChange={onTabChange}
-        />
+        <div className="flex items-center justify-between">
+          <TabNavigation
+            tabs={tabs}
+            activeTab={activeTab}
+            onTabChange={onTabChange}
+          />
+          {tabsActions && (
+            <div className="flex items-center">
+              {tabsActions}
+            </div>
+          )}
+        </div>
       )}
     </header>
   );

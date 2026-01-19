@@ -145,6 +145,11 @@ export const emailService = {
         return response.data;
     },
 
+    markAllAsRead: async (): Promise<{ marked: number }> => {
+        const response = await api.post('/email/mark-all-read');
+        return response.data;
+    },
+
     deleteMessage: async (id: number): Promise<void> => {
         await api.delete(`/email/messages/${id}`);
     },

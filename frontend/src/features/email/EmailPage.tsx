@@ -6,15 +6,13 @@ import EmailComposer from './components/EmailComposer';
 import AddressBookModal from './components/AddressBookModal';
 import CreateFolderModal from './components/CreateFolderModal';
 import { Inbox, Send, Archive, Trash2, Plus, Mail, RefreshCw, Book, Folder, Star, AlertCircle, Search } from 'lucide-react';
-import { Button } from '../../design-system';
+import { Button, Card, Header } from '../../design-system';
 import { useToast } from '../../design-system';
 import { useTranslation } from 'react-i18next';
-import { useWebSocket } from '../../hooks/useWebSocket';
 
 const EmailPage: React.FC = () => {
     const { t } = useTranslation();
     const { addToast } = useToast();
-    const { lastMessage, clearLastMessage } = useWebSocket();
     const [account, setAccount] = useState<EmailAccount | null>(null);
     const [emails, setEmails] = useState<EmailMessageList[]>([]);
     const [customFolders, setCustomFolders] = useState<EmailFolder[]>([]);
@@ -26,7 +24,19 @@ const EmailPage: React.FC = () => {
     const [composerData, setComposerData] = useState<{ to?: string, subject?: string, body?: string }>({});
     const [searchQuery, setSearchQuery] = useState('');
     const [stats, setStats] = useState<FolderStats | null>(null);
-    const [folders, setFolders] = useState<EmailFolder[]>([]);
+    const [loading, setLoading] = useState(false);
+    const [loadingMarkRead, setLoadingMarkRead] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
+
+    // System folders configuration
+    const systemFolders = [
+        { id: 'inbox', name: t('email.inbox'), icon: Inbox, unread_count: stats?.unread || 0 },
+        { id: 'sent', name: t('email.sent'), icon: Send, unread_count: 0 },
+        { id: 'important', name: t('email.important'), icon: AlertCircle, unread_count: 0 },
+        { id: 'starred', name: t('email.starred'), icon: Star, unread_count: 0 },
+        { id: 'archived', name: t('email.archived'), icon: Archive, unread_count: 0 },
+        { id: 'trash', name: t('email.trash'), icon: Trash2, unread_count: 0 }
+    ];
 
     // Initialize Account and Folders
     useEffect(() => {
@@ -45,25 +55,18 @@ const EmailPage: React.FC = () => {
         init();
     }, []);
 
-    // WebSocket notifications for new emails
-    useEffect(() => {
-        const handleMessage = (data: any) => {
-            if (data.type === 'email_new') {
-                clearLastMessage();
-                addToast({ type: 'info', title: 'Новое письмо', message: `У вас ${data.message_count || 0} ${data.message_count === 1 ? 'новое письмо' : 'новых писем'}` });
-                // Refresh current folder if viewing inbox
-                if (selectedFolder === 'inbox') {
-                    fetchEmails();
-                }
-            }
-        };
-
-        useWebSocket('email', handleMessage);
-
-        return () => {
-            useWebSocket.unsubscribe('email', handleMessage);
-        };
-    }, [useWebSocket, selectedFolder, fetchEmails]);
+    const fetchEmails = useCallback(async () => {
+        setLoading(true);
+        try {
+            const msgs = await emailService.getMessages(selectedFolder);
+            setEmails(msgs || []);
+        } catch (err) {
+            console.error(err);
+            setEmails([]);
+        } finally {
+            setLoading(false);
+        }
+    }, [selectedFolder]);
 
     // Fetch stats when folder changes
     useEffect(() => {
@@ -78,24 +81,11 @@ const EmailPage: React.FC = () => {
         loadStats();
     }, [selectedFolder]);
 
-    const fetchEmails = useCallback(async () => {
-        setLoading(true);
-        try {
-            const msgs = await emailService.getMessages(selectedFolder);
-            setEmails(msgs || []);
-        } catch (err) {
-            console.error(err);
-            setEmails([]);
-        } finally {
-            setLoading(false);
-        }
-    }, [selectedFolder]);
-
-    // Fetch Emails when folder changes
+        // Fetch Emails when folder changes
     useEffect(() => {
         fetchEmails();
         setSelectedEmailId(null);
-    }, [fetchEmails]);
+    }, [selectedFolder]);
 
     const fetchFolders = async () => {
         try {
@@ -103,6 +93,18 @@ const EmailPage: React.FC = () => {
             setCustomFolders(f || []);
         } catch {
             addToast({ type: 'error', title: 'Ошибка', message: 'Не удалось загрузить папки' });
+        }
+    };
+
+    const fetchStats = async () => {
+        try {
+            const stats = await emailService.getStats();
+            setStats(stats);
+            setUnreadCount(stats?.unread || 0);
+        } catch (err) {
+            console.error(err);
+            setStats(null);
+            setUnreadCount(0);
         }
     };
 
@@ -170,128 +172,99 @@ const EmailPage: React.FC = () => {
         }
     };
 
-    const systemFolders = [
-        { id: 'inbox', name: t('email.inbox'), icon: Inbox },
-        { id: 'sent', name: t('email.sent'), icon: Send },
-        { id: 'important', name: t('email.important'), icon: AlertCircle },
-        { id: 'starred', name: t('email.starred'), icon: Star },
-        { id: 'archive', name: t('email.archive'), icon: Archive },
-        { id: 'trash', name: t('email.trash'), icon: Trash2 }
-    ];
-
     const currentFolderTitle = [...systemFolders, ...customFolders.map(f => ({ id: f.id.toString(), name: f.name, icon: Folder }))].find(f => f.id === selectedFolder)?.name || t('email.folders');
     const currentFolderIcon = [...systemFolders, ...customFolders.map(f => ({ id: f.id.toString(), name: f.name, icon: Folder }))].find(f => f.id === selectedFolder)?.icon || Mail;
 
     return (
-        <div className="flex-1 h-full w-full bg-slate-50 flex items-stretch overflow-hidden animate-in fade-in duration-300">
-            {/* Sidebar with glass effect (Requirements 14.3) */}
-            <div className="w-80 flex-shrink-0 flex flex-col pt-6 pb-6 pl-6 pr-2 gap-8 bg-white/80 backdrop-blur-xl border-r border-white/60 shadow-xl shadow-slate-200/50">
+        <div className="flex h-full w-full bg-slate-50 overflow-hidden min-h-0">
+            {/* Sidebar - современный минималистичный дизайн */}
+            <div className="w-80 flex-shrink-0 flex flex-col p-6 gap-6 bg-white border-r border-slate-200">
                 {/* Header Action */}
-                <div className="px-2">
-                    <Button
-                        variant="primary"
-                        size="md"
-                        fullWidth
-                        icon={<Plus size={18} />}
-                        onClick={() => { setComposerData({}); setIsComposerOpen(true); }}
-                        className="uppercase tracking-wider group"
-                    >
-                        <span>{t('email.new_message')}</span>
-                    </Button>
-                </div>
+                <Button
+                    variant="primary"
+                    size="lg"
+                    fullWidth
+                    icon={<Plus size={18} />}
+                    onClick={() => { setComposerData({}); setIsComposerOpen(true); }}
+                >
+                    {t('email.new_message')}
+                </Button>
 
-                {/* Info Card with glass effect */}
-                <div className="mx-2 p-4 bg-white/90 backdrop-blur-md rounded-2xl border border-slate-100/60 shadow-lg shadow-slate-200/30">
-                    <div className="flex items-center gap-3 mb-3">
-                        <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-sm">
-                            <Mail size={18} />
+                {/* Account Info Card */}
+                <Card variant="outlined" padding="md">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="w-10 h-10 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
+                            <Mail size={20} />
                         </div>
                         <div className="min-w-0 flex-1">
-                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{t('email.account')}</div>
-                            <div className="text-sm font-bold text-slate-900 truncate">{account?.email_address || t('email.loading')}</div>
+                            <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">{t('email.account')}</div>
+                            <div className="text-sm font-semibold text-slate-900 truncate">{account?.email_address || t('email.loading')}</div>
                         </div>
                     </div>
-                    <button
-                        onClick={() => setIsAddressBookOpen(true)}
-                        className="w-full py-2.5 flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:-translate-y-0.5 active:scale-95"
-                    >
-                        <Book size={14} />
-                        {t('email.address_book')}
-                    </button>
-                    <button
-                        onClick={() => fetchEmails()}
-                        className="w-full mt-2 py-2 flex items-center justify-center gap-2 text-indigo-600 hover:bg-indigo-50 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:-translate-y-0.5 active:scale-95"
-                    >
-                        <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-                        {t('email.refresh')}
-                    </button>
-                </div>
+                    
+                    <div className="space-y-2">
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            fullWidth
+                            icon={<Book size={16} />}
+                            onClick={() => setIsAddressBookOpen(true)}
+                        >
+                            {t('email.address_book')}
+                        </Button>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            fullWidth
+                            icon={<RefreshCw size={16} className={loading ? "animate-spin" : ""} />}
+                            onClick={() => fetchEmails()}
+                        >
+                            {t('email.refresh')}
+                        </Button>
+                    </div>
+                </Card>
 
                 {/* Navigation */}
-                <div className="flex-1 overflow-y-auto px-2 custom-scrollbar space-y-8">
+                <div className="flex-1 overflow-y-auto space-y-6">
                     {/* System Folders */}
                     <div>
-                        <div className="px-4 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{t('email.folders')}</div>
+                        <div className="px-2 mb-3 text-xs font-medium text-slate-500 uppercase tracking-wider">{t('email.folders')}</div>
                         <div className="space-y-1">
-                            {folders.map((folder) => {
-                                const isActive = selectedFolder === folder.id.toString();
+                            {systemFolders.map((folder) => {
+                                const isActive = selectedFolder === folder.id;
                                 const hasUnread = folder.unread_count > 0;
                                 return (
                                     <button
                                         key={folder.id}
-                                        onClick={() => setSelectedFolder(folder.id.toString())}
-                                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 group ${isActive
-                                            ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
-                                            : 'text-slate-500 hover:bg-white/90 hover:backdrop-blur-sm hover:text-indigo-600 hover:shadow-sm'
+                                        onClick={() => setSelectedFolder(folder.id)}
+                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
+                                            ? 'bg-indigo-600 text-white shadow-sm'
+                                            : 'text-slate-600 hover:bg-slate-100 hover:text-indigo-600'
                                             }`}
                                     >
                                         <folder.icon size={18} />
-                                        <span className="flex-1">
-                                            <span className="truncate flex-1 text-left">{folder.name}</span>
-                                            {hasUnread && (
-                                                <span className="ml-2 flex items-center justify-center bg-rose-500 text-white text-xs font-bold rounded-full w-5 h-5 animate-pulse">
-                                                    {folder.unread_count}
-                                                </span>
-                                            )}
-                                        </span>
+                                        <span className="flex-1 text-left truncate">{folder.name}</span>
+                                        {hasUnread && (
+                                            <span className="bg-red-500 text-white text-xs font-medium rounded-full w-5 h-5 flex items-center justify-center">
+                                                {folder.unread_count}
+                                            </span>
+                                        )}
                                     </button>
                                 );
-                                {(unreadCount > 0) && (
-                                    <button
-                                        onClick={async () => {
-                                            setLoadingMarkRead(true);
-                                            try {
-                                                await emailService.markAllAsRead();
-                                                await fetchStats();
-                                                await fetchFolders();
-                                                addToast({ type: 'success', title: 'Уведомления', message: 'Все письма отмечены как прочитанные' });
-                                            } catch (err) {
-                                                console.error(err);
-                                            } finally {
-                                                setLoadingMarkRead(false);
-                                            }
-                                        }}
-                                        disabled={loadingMarkRead}
-                                        className="w-full mt-2 py-2 flex items-center justify-center gap-2 text-indigo-600 hover:bg-indigo-50 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:hover:opacity-40"
-                                    >
-                                        <span className="flex items-center gap-2">
-                                            <RefreshCw size={12} className={loadingMarkRead ? "animate-spin" : ""} />
-                                            <span>{t('email.mark_all_read')}</span>
-                                        </span>
-                                    </button>
-                                )}
+                            })}
+                        </div>
                     </div>
 
                     {/* Custom Folders */}
                     <div>
-                        <div className="px-4 mb-2 flex items-center justify-between group">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{t('email.personal')}</span>
-                            <button
+                        <div className="px-2 mb-3 flex items-center justify-between">
+                            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">{t('email.personal')}</span>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                icon={<Plus size={14} />}
                                 onClick={() => setIsCreateFolderOpen(true)}
-                                className="text-slate-400 hover:text-indigo-600 transition-colors p-1 hover:bg-white/50 rounded-lg"
-                            >
-                                <Plus size={14} />
-                            </button>
+                            />
                         </div>
                         <div className="space-y-1">
                             {customFolders.map((folder) => {
@@ -300,90 +273,83 @@ const EmailPage: React.FC = () => {
                                     <div key={folder.id} className="relative group">
                                         <button
                                             onClick={() => setSelectedFolder(folder.id.toString())}
-                                            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 ${isActive
-                                                ? 'bg-amber-500 text-white shadow-lg shadow-amber-200'
-                                                : 'text-slate-500 hover:bg-white/90 hover:backdrop-blur-sm hover:text-amber-500 hover:shadow-sm'
-                                                }`}
+                                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${isActive
+                                                ? 'bg-amber-500 text-white shadow-sm'
+                                                : 'text-slate-600 hover:bg-slate-100 hover:text-amber-500'
+                                            }`}
                                         >
                                             <Folder size={18} />
-                                            <span className="truncate flex-1 text-left">{folder.name}</span>
+                                            <span className="flex-1 text-left truncate">{folder.name}</span>
                                         </button>
-                                        <button
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            icon={<Trash2 size={14} />}
                                             onClick={(e) => handleDeleteFolder(e, folder.id)}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
+                                            className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        />
                                     </div>
                                 );
                             })}
-                            {customFolders.length === 0 && (
-                                <div className="px-4 py-3 text-xs text-slate-400 italic">{t('email.no_messages')}</div>
-                            )}
                         </div>
                     </div>
+
+                    {/* Mark All Read Button */}
+                    {(unreadCount > 0) && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            fullWidth
+                            icon={<RefreshCw size={16} className={loadingMarkRead ? "animate-spin" : ""} />}
+                            onClick={async () => {
+                                setLoadingMarkRead(true);
+                                try {
+                                    await emailService.markAllAsRead();
+                                    await fetchStats();
+                                    await fetchEmails();
+                                    addToast({ type: 'success', title: 'Уведомления', message: 'Все письма отмечены как прочитанные' });
+                                } catch (err) {
+                                    console.error(err);
+                                    addToast({ type: 'error', title: 'Ошибка', message: 'Не удалось отметить письма как прочитанные' });
+                                } finally {
+                                    setLoadingMarkRead(false);
+                                }
+                            }}
+                            disabled={loadingMarkRead}
+                        >
+                            {t('email.mark_all_read')}
+                        </Button>
+                    )}
                 </div>
             </div>
 
             {/* Main Content Area */}
-            <div className="flex-1 p-6 flex flex-col gap-6 overflow-hidden min-w-0">
-                {/* Header Component from Design System */}
-                <div>
-                    <div className="bg-white/80 backdrop-blur-xl border border-white/60 rounded-2xl shadow-2xl shadow-slate-200/50 p-4 sm:p-6 space-y-3 sm:space-y-4">
-                        {/* Upper Level: Icon + Title + Search */}
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                            {/* Icon + Title Section */}
-                            <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 w-full sm:w-auto">
-                                <div className="p-2.5 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-200 hover:scale-105 transition-transform duration-300">
-                                    {React.createElement(currentFolderIcon, { size: 20 })}
-                                </div>
-                                
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                        {t('email.title')}
-                                    </div>
-                                    <h1 
-                                        key={currentFolderTitle}
-                                        className="text-lg sm:text-xl font-black text-slate-900 leading-none tracking-tight truncate animate-in fade-in slide-in-from-left-1 duration-300"
-                                    >
-                                        {currentFolderTitle}
-                                    </h1>
-                                </div>
-                            </div>
-                            
-                            {/* Search Input */}
-                            <div className="w-full sm:w-auto order-3 sm:order-2">
-                                <div className="relative group w-full sm:w-80">
-                                    <div className="absolute inset-0 bg-indigo-500/5 rounded-xl blur-md group-hover:bg-indigo-500/10 transition-colors" />
-                                    <div className="relative flex items-center gap-2 bg-white/50 border border-slate-200/50 rounded-xl p-0.5 transition-all focus-within:bg-white focus-within:shadow-md focus-within:border-indigo-100 focus-within:ring-4 focus-within:ring-indigo-100">
-                                        <Search className="ml-2.5 text-slate-400" size={16} />
-                                        <input
-                                            type="text"
-                                            placeholder={t('email.search_placeholder')}
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            className="w-full bg-transparent border-none focus:ring-0 text-slate-800 placeholder:text-slate-400 font-bold text-sm h-8"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div className="flex-1 min-w-0 p-6 flex flex-col gap-6 overflow-hidden">
+                {/* Header */}
+                <Header
+                    icon={React.createElement(currentFolderIcon, { size: 20 })}
+                    title={currentFolderTitle}
+                    subtitle={t('email.title')}
+                    searchPlaceholder={t('email.search_placeholder')}
+                    searchValue={searchQuery}
+                    onSearchChange={(e) => setSearchQuery(e.target.value)}
+                />
 
                 {/* Email List Section */}
-                <div className={`flex flex-col bg-white rounded-3xl border border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden transition-all duration-500 ${selectedEmailId ? 'h-[40%]' : 'flex-1'}`}>
+                <Card 
+                    variant="default" 
+                    padding="none"
+                    className={`flex flex-col overflow-hidden transition-all duration-500 ${selectedEmailId ? 'h-[40%]' : 'flex-1'}`}
+                >
                     {/* List Header */}
-                    <div className="px-8 py-5 border-b border-slate-100 bg-white z-10 flex justify-between items-center sticky top-0">
-                        <div className="flex items-baseline gap-4">
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                {emails.length === 1 ? t('email.messages_count', { count: emails.length }) : t('email.messages_count_plural', { count: emails.length })}
-                            </p>
-                        </div>
+                    <div className="px-6 py-4 border-b border-slate-200 bg-slate-50">
+                        <p className="text-sm font-medium text-slate-600">
+                            {emails.length === 1 ? t('email.messages_count', { count: emails.length }) : t('email.messages_count_plural', { count: emails.length })}
+                        </p>
                     </div>
 
                     {/* The List Component */}
-                    <div className="flex-1 overflow-auto custom-scrollbar">
+                    <div className="flex-1 overflow-auto">
                         <EmailList
                             emails={emails.filter(e =>
                                 (e.subject || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -397,6 +363,15 @@ const EmailPage: React.FC = () => {
                                 try {
                                     await emailService.updateMessage(id, { is_starred: !current });
                                     fetchEmails();
+                                    fetchStats(); // Обновляем статистику
+                                } catch (err) { console.error(err); }
+                            }}
+                            onToggleRead={async (e, id, current) => {
+                                e.stopPropagation();
+                                try {
+                                    await emailService.updateMessage(id, { is_read: !current });
+                                    await fetchEmails();
+                                    await fetchStats(); // Обновляем статистику
                                 } catch (err) { console.error(err); }
                             }}
                             onDelete={async (e, id) => {
@@ -411,20 +386,31 @@ const EmailPage: React.FC = () => {
                             }}
                         />
                     </div>
-                </div>
+                </Card>
 
                 {/* Email Details Section - Only visible when email is selected */}
-                {selectedEmailId && (
-                    <div className="flex-1 bg-white rounded-3xl border border-slate-100 shadow-2xl shadow-indigo-500/10 overflow-hidden min-h-0">
+                {selectedEmailId ? (
+                    <Card variant="default" padding="none" className="flex-1 overflow-hidden min-h-0">
                         <EmailDetails
                             emailId={selectedEmailId}
                             customFolders={customFolders}
                             onEmailUpdate={fetchEmails}
+                            onStatsUpdate={fetchStats}
                             onReply={handleReply}
                             onForward={handleForward}
                             onDelete={handleDeleteMessage}
                         />
-                    </div>
+                    </Card>
+                ) : (
+                    <Card variant="default" className="flex-1 overflow-hidden min-h-0 flex items-center justify-center">
+                        <div className="text-center p-8">
+                            <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Mail size={32} className="text-indigo-600" />
+                            </div>
+                            <h3 className="text-lg font-semibold text-slate-900 mb-2">{t('email.select_message')}</h3>
+                            <p className="text-slate-500">{t('email.select_message_description')}</p>
+                        </div>
+                    </Card>
                 )}
             </div>
 

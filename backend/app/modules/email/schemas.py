@@ -18,6 +18,7 @@ class EmailStats(BaseModel):
     archived: int
     trash: int
     total: int
+    unread: int
 
 
 class UnreadCount(BaseModel):

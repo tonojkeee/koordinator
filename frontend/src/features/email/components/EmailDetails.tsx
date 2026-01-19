@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { emailService, type EmailMessage, type EmailFolder, type EmailMessageUpdate } from '../emailService';
-import { Paperclip, Clock, Download, Star, AlertCircle, Folder, Trash2, FolderInput, Reply, Forward, Printer, FileText } from 'lucide-react';
+import { Paperclip, Clock, Download, Star, AlertCircle, Folder, Trash2, FolderInput, Reply, Forward, Printer, FileText, Mail } from 'lucide-react';
 import { Avatar } from '../../../design-system';
 import DOMPurify from 'dompurify';
 
@@ -8,12 +8,13 @@ interface EmailDetailsProps {
     emailId: number;
     customFolders: EmailFolder[];
     onEmailUpdate: () => void;
+    onStatsUpdate: () => void;
     onReply: (email: EmailMessage) => void;
     onForward: (email: EmailMessage) => void;
     onDelete: (id: number) => void;
 }
 
-const EmailDetails: React.FC<EmailDetailsProps> = ({ emailId, customFolders, onEmailUpdate, onReply, onForward, onDelete }) => {
+const EmailDetails: React.FC<EmailDetailsProps> = ({ emailId, customFolders, onEmailUpdate, onStatsUpdate, onReply, onForward, onDelete }) => {
     const [email, setEmail] = useState<EmailMessage | null>(null);
     const [loading, setLoading] = useState(false);
     const [isMoveDropdownOpen, setIsMoveDropdownOpen] = useState(false);
@@ -25,6 +26,16 @@ const EmailDetails: React.FC<EmailDetailsProps> = ({ emailId, customFolders, onE
             try {
                 const data = await emailService.getMessage(emailId);
                 setEmail(data);
+                
+                // Автоматически помечаем как прочитанное, если еще не прочитано
+                if (!data.is_read) {
+                    await emailService.updateMessage(emailId, { is_read: true });
+                    // Обновляем локальное состояние
+                    setEmail(prev => prev ? { ...prev, is_read: true } : null);
+                    // Обновляем список сообщений и статистику
+                    onEmailUpdate();
+                    onStatsUpdate();
+                }
             } catch (error) {
                 console.error("Failed to load email", error);
             } finally {
@@ -35,7 +46,7 @@ const EmailDetails: React.FC<EmailDetailsProps> = ({ emailId, customFolders, onE
         if (emailId) {
             fetchEmail();
         }
-    }, [emailId]);
+    }, [emailId, onEmailUpdate, onStatsUpdate]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -55,6 +66,7 @@ const EmailDetails: React.FC<EmailDetailsProps> = ({ emailId, customFolders, onE
             const updated = await emailService.updateMessage(email.id, updates);
             setEmail(updated);
             onEmailUpdate();
+            onStatsUpdate();
         } catch (error) {
             console.error("Failed to update email", error);
         }
@@ -108,6 +120,13 @@ const EmailDetails: React.FC<EmailDetailsProps> = ({ emailId, customFolders, onE
                         <Forward size={20} />
                     </button>
                     <div className="w-px h-6 bg-slate-100 mx-1" />
+                    <button
+                        onClick={() => email && updateEmail({ is_read: !email.is_read })}
+                        className={`p-2 rounded-xl transition-all ${!email?.is_read ? 'bg-blue-50 text-blue-600' : 'text-slate-400 hover:bg-slate-50'}`}
+                        title={email?.is_read ? "Отметить как непрочитанное" : "Отметить как прочитанное"}
+                    >
+                        <Mail size={20} fill={!email?.is_read ? "currentColor" : "none"} />
+                    </button>
                     <button
                         onClick={() => email && updateEmail({ is_starred: !email.is_starred })}
                         className={`p-2 rounded-xl transition-all ${email?.is_starred ? 'bg-amber-50 text-amber-500' : 'text-slate-400 hover:bg-slate-50'}`}

@@ -139,8 +139,8 @@ const SettingsPage: React.FC = () => {
             {/* Header with Design System */}
             <div className="px-6 pt-4 pb-2 shrink-0 z-20 sticky top-0 pointer-events-none">
                 <Header
-                    title={t('settings.title')}
-                    subtitle={t('settings.subtitle', 'Персонализация')}
+                    title={t('settings.subtitle', 'Персонализация')}
+                    subtitle={t('settings.title')}
                     icon={<SettingsIcon size={20} />}
                     iconColor="indigo"
                     sticky={false}

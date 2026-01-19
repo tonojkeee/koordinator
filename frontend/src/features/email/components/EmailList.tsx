@@ -1,5 +1,5 @@
 import React from 'react';
-import { Paperclip, Star, Trash2, AlertCircle } from 'lucide-react';
+import { Paperclip, Star, Trash2, AlertCircle, Mail } from 'lucide-react';
 import type { EmailMessageList } from '../emailService';
 import { Card } from '../../../design-system';
 
@@ -8,10 +8,11 @@ interface EmailListProps {
     onSelectEmail: (id: number) => void;
     selectedEmailId: number | null;
     onToggleStar: (e: React.MouseEvent, id: number, current: boolean) => void;
+    onToggleRead: (e: React.MouseEvent, id: number, current: boolean) => void;
     onDelete: (e: React.MouseEvent, id: number) => void;
 }
 
-const EmailList: React.FC<EmailListProps> = ({ emails, onSelectEmail, selectedEmailId, onToggleStar, onDelete }) => {
+const EmailList: React.FC<EmailListProps> = ({ emails, onSelectEmail, selectedEmailId, onToggleStar, onToggleRead, onDelete }) => {
 
     // Sort emails by date desc
     const sortedEmails = [...emails].sort((a, b) => new Date(b.received_at).getTime() - new Date(a.received_at).getTime());
@@ -33,7 +34,8 @@ const EmailList: React.FC<EmailListProps> = ({ emails, onSelectEmail, selectedEm
                 <div className="flex-1 min-w-0 mr-4">Тема</div>
                 <div className="w-48 shrink-0 mr-4">Корреспондент</div>
                 <div className="w-32 shrink-0 text-right">Дата</div>
-                <div className="w-10 shrink-0 ml-4"></div> {/* Delete space */}
+                <div className="w-8 shrink-0 ml-2"></div> {/* Read status space */}
+                <div className="w-10 shrink-0 ml-2"></div> {/* Delete space */}
             </div>
 
             {/* List Rows using Card component */}
@@ -96,8 +98,19 @@ const EmailList: React.FC<EmailListProps> = ({ emails, onSelectEmail, selectedEm
                                     {dateStr}
                                 </div>
 
+                                {/* Read Status Toggle */}
+                                <div className="w-8 shrink-0 ml-2 flex justify-center">
+                                    <button
+                                        onClick={(e) => onToggleRead(e, email.id, email.is_read)}
+                                        className={`p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100 ${!email.is_read ? 'text-blue-500 hover:bg-blue-50' : 'text-slate-300 hover:text-slate-500 hover:bg-slate-50'}`}
+                                        title={email.is_read ? "Отметить как непрочитанное" : "Отметить как прочитанное"}
+                                    >
+                                        <Mail size={14} fill={!email.is_read ? "currentColor" : "none"} />
+                                    </button>
+                                </div>
+
                                 {/* Delete Action */}
-                                <div className="w-10 shrink-0 ml-4 flex justify-end">
+                                <div className="w-10 shrink-0 ml-2 flex justify-end">
                                     <button
                                         onClick={(e) => onDelete(e, email.id)}
                                         className="p-1.5 text-slate-200 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"

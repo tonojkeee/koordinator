@@ -26,8 +26,8 @@ const ZsspdPage: React.FC = () => {
             {/* Header with Design System */}
             <div className="px-6 pt-4 pb-2 shrink-0 z-20 sticky top-0 pointer-events-none">
                 <Header
-                    title={t('zsspd.title')}
-                    subtitle={activeTab === 'outgoing' ? t('zsspd.outgoing') : activeTab === 'incoming' ? t('zsspd.incoming') : t('zsspd.archive')}
+                    title={activeTab === 'outgoing' ? t('zsspd.outgoing') : activeTab === 'incoming' ? t('zsspd.incoming') : t('zsspd.archive')}
+                    subtitle={t('zsspd.title')}
                     icon={<Package size={20} />}
                     iconColor="indigo"
                     tabs={tabs.map(tab => ({

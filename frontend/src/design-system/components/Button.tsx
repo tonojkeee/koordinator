@@ -1,8 +1,8 @@
 /**
  * Design System - Button Component
  * 
- * Универсальный компонент кнопки с поддержкой различных вариантов,
- * размеров, иконок и состояния загрузки.
+ * Современный компонент кнопки с минималистичным дизайном и четкой иерархией.
+ * Основан на принципах современного UI/UX дизайна.
  * 
  * @example
  * <Button variant="primary" size="md" onClick={handleClick}>
@@ -21,20 +21,21 @@ import { cn } from '../utils/cn';
 import { Loader2 } from 'lucide-react';
 
 const buttonVariants = cva(
-  // Base styles
-  'inline-flex items-center justify-center gap-2 font-bold rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed',
+  // Base styles - современный минималистичный подход
+  'inline-flex items-center justify-center gap-2 font-medium rounded-xl transition-all duration-200 ease-out disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2',
   {
     variants: {
       variant: {
-        primary: 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg shadow-indigo-600/30 hover:-translate-y-0.5 active:scale-95',
-        secondary: 'bg-white hover:bg-slate-50 text-slate-700 border-2 border-slate-200 hover:border-slate-300 active:scale-95',
-        danger: 'bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/30 hover:-translate-y-0.5 active:scale-95',
-        ghost: 'hover:bg-slate-100 text-slate-700 active:scale-95',
+        primary: 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm hover:shadow-md focus:ring-indigo-500/20 active:scale-95',
+        secondary: 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 hover:border-slate-300 shadow-sm hover:shadow-md focus:ring-slate-500/20 active:scale-95',
+        danger: 'bg-red-600 hover:bg-red-700 text-white shadow-sm hover:shadow-md focus:ring-red-500/20 active:scale-95',
+        ghost: 'hover:bg-slate-100 text-slate-700 focus:ring-slate-500/20 active:scale-95',
+        outline: 'border border-slate-300 hover:border-slate-400 text-slate-700 hover:bg-slate-50 focus:ring-slate-500/20 active:scale-95',
       },
       size: {
-        sm: 'px-3 h-8 text-xs',
-        md: 'px-4 h-9 text-xs',
-        lg: 'px-6 h-11 text-sm',
+        sm: 'px-3 h-8 text-sm',
+        md: 'px-4 h-10 text-sm',
+        lg: 'px-6 h-12 text-base',
       },
     },
     defaultVariants: {
@@ -44,7 +45,7 @@ const buttonVariants = cva(
   }
 );
 
-export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
+export type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost' | 'outline';
 export type ButtonSize = 'sm' | 'md' | 'lg';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
