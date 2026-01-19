@@ -13,13 +13,13 @@ class UserService:
     @staticmethod
     async def validate_password(db: AsyncSession, password: str) -> None:
         """Validate password against system settings"""
-        from app.modules.admin.service import SystemSettingService
+        from app.core.config_service import ConfigService
         from fastapi import HTTPException
         import re
 
-        min_len = await SystemSettingService.get_value(db, "security_password_min_length", 8)
-        require_digits = await SystemSettingService.get_value(db, "security_password_require_digits", False)
-        require_upper = await SystemSettingService.get_value(db, "security_password_require_uppercase", False)
+        min_len = await ConfigService.get_value(db, "security_password_min_length", 8)
+        require_digits = await ConfigService.get_value(db, "security_password_require_digits", False)
+        require_upper = await ConfigService.get_value(db, "security_password_require_uppercase", False)
 
         if len(password) < int(min_len):
             raise HTTPException(status_code=400, detail=f"Password must be at least {min_len} characters long")

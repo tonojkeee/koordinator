@@ -15,6 +15,7 @@ from app.modules.board.schemas import (
 )
 from app.modules.board.service import BoardService
 from app.modules.chat.service import ChatService
+from app.core.config_service import ConfigService
 from app.modules.admin.service import SystemSettingService
 
 # Security Constants
@@ -37,7 +38,7 @@ async def upload_document(
     extension = os.path.splitext(file.filename)[1].lower()
     
     # Get settings from DB
-    allowed_types_str = await SystemSettingService.get_value(db, "allowed_file_types")
+    allowed_types_str = await ConfigService.get_value(db, "allowed_file_types")
     allowed_extensions = {ext.strip() for ext in allowed_types_str.split(",")} if allowed_types_str else ALLOWED_EXTENSIONS
     
     if extension not in allowed_extensions:
@@ -55,7 +56,7 @@ async def upload_document(
     size = 0
     
     # Get max size from DB
-    max_size_mb_str = await SystemSettingService.get_value(db, "max_upload_size_mb")
+    max_size_mb_str = await ConfigService.get_value(db, "max_upload_size_mb")
     try:
         max_size = int(max_size_mb_str) * 1024 * 1024
     except (ValueError, TypeError):
@@ -302,7 +303,7 @@ async def _validate_file_and_channel(
     """Validate file type and channel membership"""
     extension = os.path.splitext(file.filename)[1].lower()
     
-    allowed_types_str = await SystemSettingService.get_value(db, "allowed_file_types")
+    allowed_types_str = await ConfigService.get_value(db, "allowed_file_types")
     allowed_extensions = {ext.strip() for ext in allowed_types_str.split(",")} if allowed_types_str else ALLOWED_EXTENSIONS
     
     if extension not in allowed_extensions:
@@ -325,7 +326,7 @@ async def _save_uploaded_file(file: UploadFile, extension: str, db: AsyncSession
     file_path = f"{UPLOAD_DIR}/{filename}"
 
     size = 0
-    max_size_mb_str = await SystemSettingService.get_value(db, "max_upload_size_mb")
+    max_size_mb_str = await ConfigService.get_value(db, "max_upload_size_mb")
     try:
         max_size = int(max_size_mb_str) * 1024 * 1024
     except (ValueError, TypeError):

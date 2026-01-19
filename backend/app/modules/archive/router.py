@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.modules.auth.router import get_current_user
 from app.modules.auth.models import User
 from app.modules.archive.service import ArchiveService
+from app.core.config_service import ConfigService
 from app.modules.admin.service import SystemSettingService
 from app.modules.archive.schemas import (
     ArchiveFileResponse, 
@@ -89,14 +90,14 @@ async def upload_file(
 
     # Validate File Type
     extension = os.path.splitext(file.filename)[1].lower() if file.filename else ""
-    allowed_types_str = await SystemSettingService.get_value(db, "allowed_file_types")
+    allowed_types_str = await ConfigService.get_value(db, "allowed_file_types")
     if allowed_types_str:
         allowed = {t.strip().lower() for t in allowed_types_str.split(",")}
         if extension not in allowed:
             raise HTTPException(status_code=400, detail=f"File type {extension} not allowed")
 
     # Validate Size (approximate using content-length)
-    max_mb_str = await SystemSettingService.get_value(db, "max_upload_size_mb")
+    max_mb_str = await ConfigService.get_value(db, "max_upload_size_mb")
     try:
         max_bytes = int(max_mb_str) * 1024 * 1024
     except (ValueError, TypeError):
@@ -269,14 +270,14 @@ async def update_file_content(
 
     # Validate File Type
     extension = os.path.splitext(file.filename)[1].lower() if file.filename else ""
-    allowed_types_str = await SystemSettingService.get_value(db, "allowed_file_types")
+    allowed_types_str = await ConfigService.get_value(db, "allowed_file_types")
     if allowed_types_str:
         allowed = {t.strip().lower() for t in allowed_types_str.split(",")}
         if extension not in allowed:
             raise HTTPException(status_code=400, detail=f"File type {extension} not allowed")
 
     # Validate Size
-    max_mb_str = await SystemSettingService.get_value(db, "max_upload_size_mb")
+    max_mb_str = await ConfigService.get_value(db, "max_upload_size_mb")
     try:
         max_bytes = int(max_mb_str) * 1024 * 1024
     except (ValueError, TypeError):

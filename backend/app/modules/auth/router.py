@@ -19,6 +19,7 @@ from typing import List, Optional, Dict, Any
 
 
 from app.modules.auth.service import UserService, UnitService
+from app.core.config_service import ConfigService
 from app.modules.admin.service import SystemSettingService
 from app.modules.auth.models import User
 
@@ -115,7 +116,7 @@ async def register(
 ):
     """Register a new user"""
     # Check registration setting
-    allow_reg = await SystemSettingService.get_value(db, "allow_registration", "true")
+    allow_reg = await ConfigService.get_value(db, "allow_registration", "true")
     if allow_reg.lower() != "true":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -27,6 +27,7 @@ from app.modules.chat.schemas import (
     MessageParentInfo
 )
 from app.modules.chat.service import ChatService
+from app.core.config_service import ConfigService
 from app.modules.admin.service import SystemSettingService
 from app.modules.chat.models import ChannelMember, Channel, Message
 from app.modules.chat.websocket import manager
@@ -65,7 +66,7 @@ async def create_channel(
     """Create a new channel"""
     # Check permissions
     if current_user.role != "admin":
-        allow_create = await SystemSettingService.get_value(db, "chat_allow_create_channel")
+        allow_create = await ConfigService.get_value(db, "chat_allow_create_channel")
         if str(allow_create).lower() != "true":
              raise HTTPException(status_code=403, detail="Создание каналов запрещено администратором")
 
@@ -146,7 +147,7 @@ async def get_channel_messages(
 ):
     # Determine limit
     if limit is None:
-        setting_val = await SystemSettingService.get_value(db, "chat_page_size")
+        setting_val = await ConfigService.get_value(db, "chat_page_size")
         try:
             limit = int(setting_val)
         except (ValueError, TypeError):
@@ -652,7 +653,7 @@ async def websocket_endpoint(
             
             # Check message length
             async with AsyncSessionLocal() as db:
-                max_len_setting = await SystemSettingService.get_value(db, "chat_max_message_length")
+                max_len_setting = await ConfigService.get_value(db, "chat_max_message_length")
                 try:
                     max_len = int(max_len_setting)
                 except (ValueError, TypeError):
@@ -873,7 +874,7 @@ async def delete_message(
     
     # Check system setting if not admin
     if not is_admin:
-        allow_delete = await SystemSettingService.get_value(db, "chat_allow_delete")
+        allow_delete = await ConfigService.get_value(db, "chat_allow_delete")
         if str(allow_delete).lower() != "true":
              raise HTTPException(status_code=403, detail="Удаление сообщений запрещено администратором")
 

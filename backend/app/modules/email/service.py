@@ -24,7 +24,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # HTML sanitization configuration
 ALLOWED_TAGS = [
-    'p', 'br', 'strong', 'em', 'u', 'a', 'ul', 'ol', 'li', 
+    'p', 'br', 'strong', 'em', 'u', 'a', 'ul', 'ol', 'li',
     'blockquote', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
     'table', 'tr', 'td', 'th', 'thead', 'tbody', 'div', 'span'
 ]
@@ -42,7 +42,7 @@ def sanitize_html(html: str) -> str:
     """
     if not html:
         return html
-    
+
     return bleach.clean(
         html,
         tags=ALLOWED_TAGS,
@@ -63,14 +63,14 @@ async def create_email_account(db: AsyncSession, user_id: int, email_address: st
     return account
 
 async def get_emails(
-    db: AsyncSession, 
-    account_id: int, 
-    folder: str = "inbox", 
-    skip: int = 0, 
+    db: AsyncSession,
+    account_id: int,
+    folder: str = "inbox",
+    skip: int = 0,
     limit: int = 50
 ) -> List[EmailMessage]:
     stmt = select(EmailMessage).where(EmailMessage.account_id == account_id)
-    
+
     if folder == "inbox":
         stmt = stmt.where(EmailMessage.is_sent == False, EmailMessage.is_deleted == False, EmailMessage.is_archived == False)
     elif folder == "sent":
@@ -90,7 +90,7 @@ async def get_emails(
             stmt = stmt.where(EmailMessage.folder_id == f_id, EmailMessage.is_deleted == False)
         except ValueError:
             pass
-            
+
     stmt = stmt.order_by(desc(EmailMessage.received_at)).offset(skip).limit(limit).options(selectinload(EmailMessage.attachments))
     result = await db.execute(stmt)
     return result.scalars().all()
@@ -100,20 +100,20 @@ async def get_email_attachment(db: AsyncSession, attachment_id: int, user_id: in
     stmt = select(EmailAttachment).where(EmailAttachment.id == attachment_id)
     result = await db.execute(stmt)
     attachment = result.scalar_one_or_none()
-    
+
     if not attachment:
         return None
-    
-    # Verify ownership by checking if the attachment belongs to a message owned by the user
+
+    # Verify ownership by checking if attachment belongs to a message owned by user
     message = await get_email_by_id(db, attachment.message_id, None)
     if not message:
         return None
-    
-    # Get the account associated with the message
+
+    # Get account associated with message
     account = await get_user_email_account(db, user_id)
     if not account or message.account_id != account.id:
         return None
-    
+
     return attachment
 
 async def get_email_by_id(db: AsyncSession, message_id: int, account_id: int) -> Optional[EmailMessage]:
@@ -124,7 +124,7 @@ async def get_email_by_id(db: AsyncSession, message_id: int, account_id: int) ->
     result = await db.execute(stmt)
     return result.scalar_one_or_none()
 
-from app.modules.admin.service import SystemSettingService
+from app.core.config_service import ConfigService
 
 async def send_email(db: AsyncSession, account_id: int, email_data: EmailMessageCreate, files: List[tuple] = []) -> EmailMessage:
     # 1. Fetch sender account
@@ -159,7 +159,7 @@ async def send_email(db: AsyncSession, account_id: int, email_data: EmailMessage
     msg["To"] = email_data.to_address
     if email_data.cc_address:
         msg["Cc"] = email_data.cc_address
-    
+
     if email_data.body_text:
         part1 = MIMEText(email_data.body_text, "plain")
         msg.attach(part1)
@@ -168,8 +168,8 @@ async def send_email(db: AsyncSession, account_id: int, email_data: EmailMessage
         msg.attach(part2)
 
     # 5. Send via aiosmtplib
-    smtp_host = await SystemSettingService.get_value(db, "email_smtp_host", "127.0.0.1")
-    smtp_port = await SystemSettingService.get_value(db, "email_smtp_port", 2525)
+    smtp_host = await ConfigService.get_value(db, "email_smtp_host", "127.0.0.1")
+    smtp_port = await ConfigService.get_value(db, "email_smtp_port", 2525)
     
     try:
         async with aiosmtplib.SMTP(hostname=smtp_host, port=int(smtp_port)) as smtp:
@@ -224,9 +224,9 @@ async def _extract_email_body(msg) -> tuple[str, str]:
 
 async def _get_attachment_settings(db: AsyncSession) -> tuple[int, int, set]:
     """Get attachment validation settings from database"""
-    max_mb_str = await SystemSettingService.get_value(db, "email_max_attachment_size_mb", "25")
-    max_total_mb_str = await SystemSettingService.get_value(db, "email_max_total_attachment_size_mb", "50")
-    allowed_types_str = await SystemSettingService.get_value(db, "email_allowed_file_types", "")
+    max_mb_str = await ConfigService.get_value(db, "email_max_attachment_size_mb", "25")
+    max_total_mb_str = await ConfigService.get_value(db, "email_max_total_attachment_size_mb", "50")
+    allowed_types_str = await ConfigService.get_value(db, "email_allowed_file_types", "")
     
     try:
         max_bytes = int(max_mb_str) * 1024 * 1024

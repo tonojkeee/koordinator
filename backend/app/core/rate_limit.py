@@ -10,6 +10,7 @@ from collections import defaultdict
 from fastapi import Request, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.redis_manager import redis_manager
+from app.core.config_service import ConfigService
 from app.modules.admin.service import SystemSettingService
 
 # In-memory fallback when Redis is unavailable
@@ -156,7 +157,7 @@ async def rate_limit_chat_message(user_id: int, db: AsyncSession) -> bool:
         True if message is allowed, False if rate limited
     """
     # Get limit from system settings
-    limit = await SystemSettingService.get_value(db, "chat_rate_limit")
+    limit = await ConfigService.get_value(db, "chat_rate_limit")
     try:
         max_messages = int(limit)
     except (ValueError, TypeError):

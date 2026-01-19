@@ -10,6 +10,7 @@ from app.modules.admin.models import AuditLog, SystemSetting
 from datetime import datetime, timedelta
 from app.modules.chat.websocket import manager
 from app.core.config import get_settings
+from app.core.config_service import ConfigService
 
 settings = get_settings()
 
@@ -141,6 +142,12 @@ class SystemSettingService:
         return config
 
 class AdminService:
+    @staticmethod
+    async def get_system_settings(db: AsyncSession):
+        """All settings still read from SystemSetting model"""
+        result = await db.execute(select(SystemSetting))
+        return result.scalars().all()
+
     @staticmethod
     async def get_overview_stats(db: AsyncSession):
         """Get high-level counts for the dashboard"""
