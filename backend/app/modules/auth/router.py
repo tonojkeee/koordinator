@@ -20,8 +20,9 @@ from typing import List, Optional, Dict, Any
 
 from app.modules.auth.service import UserService, UnitService
 from app.core.config_service import ConfigService
-from app.modules.admin.service import SystemSettingService
+from app.modules.admin.service import AdminService, SystemSettingService
 from app.modules.auth.models import User
+from app.core.websocket_manager import websocket_manager
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -378,9 +379,8 @@ async def delete_user(
     if not success:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     
-    from app.modules.admin.service import AdminService
     await AdminService.create_audit_log(
-        db, admin.id, "delete_user", "user", user_id, 
+        db, admin.id, "delete_user", "user", user_id,
         f"Deleted user with ID {user_id}"
     )
     return None
@@ -398,9 +398,8 @@ async def update_user_role(
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     
-    from app.modules.admin.service import AdminService
     await AdminService.create_audit_log(
-        db, admin.id, "update_role", "user", user_id, 
+        db, admin.id, "update_role", "user", user_id,
         f"Changed role to {role_data.role.value}"
     )
     return user
@@ -424,9 +423,8 @@ async def create_unit(
     """Create a new unit (Admin only)"""
     unit = await UnitService.create_unit(db, unit_data)
     
-    from app.modules.admin.service import AdminService
     await AdminService.create_audit_log(
-        db, admin.id, "create_unit", "unit", unit.id, 
+        db, admin.id, "create_unit", "unit", unit.id,
         f"Created unit: {unit.name}"
     )
     return unit
@@ -443,9 +441,8 @@ async def delete_unit(
     if not success:
         raise HTTPException(status_code=404, detail="Подразделение не найдено")
     
-    from app.modules.admin.service import AdminService
     await AdminService.create_audit_log(
-        db, admin.id, "delete_unit", "unit", unit_id, 
+        db, admin.id, "delete_unit", "unit", unit_id,
         f"Deleted unit with ID {unit_id}"
     )
     return None
@@ -463,9 +460,8 @@ async def update_unit(
     if not unit:
         raise HTTPException(status_code=404, detail="Подразделение не найдено")
     
-    from app.modules.admin.service import AdminService
     await AdminService.create_audit_log(
-        db, admin.id, "update_unit", "unit", unit_id, 
+        db, admin.id, "update_unit", "unit", unit_id,
         f"Updated unit properties: {unit_data.dict(exclude_unset=True)}"
     )
     return unit
@@ -485,9 +481,8 @@ async def update_user_unit(
     if error == "unit_not_found":
         raise HTTPException(status_code=404, detail="Подразделение не найдено")
     
-    from app.modules.admin.service import AdminService
     await AdminService.create_audit_log(
-        db, admin.id, "update_user_unit", "user", user_id, 
+        db, admin.id, "update_user_unit", "user", user_id,
         f"Moved user to unit: {unit_name}"
     )
     return user
@@ -508,12 +503,10 @@ async def update_user_admin(
     
     # If account was deactivated, kick from all active WebSockets
     if update_data.is_active is False:
-        from app.modules.chat.websocket import manager
-        await manager.kick_user(user_id)
+        await websocket_manager.kick_user(user_id)
     
-    from app.modules.admin.service import AdminService
     await AdminService.create_audit_log(
-        db, admin.id, "update_user_admin", "user", user_id, 
+        db, admin.id, "update_user_admin", "user", user_id,
         f"Updated user profile data: {update_data.dict(exclude_unset=True)}"
     )
     return updated_user
@@ -531,9 +524,8 @@ async def reset_user_password(
     if not success:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     
-    from app.modules.admin.service import AdminService
     await AdminService.create_audit_log(
-        db, admin.id, "reset_password", "user", user_id, 
+        db, admin.id, "reset_password", "user", user_id,
         "Reset user password"
     )
     return {"message": "Пароль успешно сброшен"}

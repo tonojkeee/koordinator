@@ -231,7 +231,7 @@ async def share_document(
     )
     msg = await ChatService.create_message(db, msg_data, current_user.id, document_id=document.id)
     
-    from app.modules.chat.websocket import manager
+    from app.core.websocket_manager import websocket_manager as manager
     
     # Broadcast message to channel
     await manager.broadcast_to_channel(channel.id, {
@@ -371,7 +371,7 @@ async def _post_document_to_channel(
 ):
     """Post document message to channel and broadcast"""
     from app.modules.chat.schemas import MessageCreate as ChatMessageCreate
-    from app.modules.chat.websocket import manager
+    from app.core.websocket_manager import websocket_manager as manager
     
     msg_content = description if description else f"📎 Отправил файл: {document.title}"
     msg_data = ChatMessageCreate(channel_id=channel_id, content=msg_content)
@@ -431,7 +431,7 @@ async def _send_document_via_dms(
 ):
     """Send document to recipients via direct messages"""
     from app.modules.chat.schemas import MessageCreate as ChatMessageCreate
-    from app.modules.chat.websocket import manager
+    from app.core.websocket_manager import websocket_manager as manager
     
     msg_content = description if description else f"📎 Поделился файлом: {document.title}"
     

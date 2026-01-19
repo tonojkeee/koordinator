@@ -8,7 +8,7 @@ from app.modules.archive.models import ArchiveFile
 from app.modules.tasks.models import Task, TaskStatus
 from app.modules.admin.models import AuditLog, SystemSetting
 from datetime import datetime, timedelta
-from app.modules.chat.websocket import manager
+from app.core.websocket_manager import websocket_manager as manager
 from app.core.config import get_settings
 from app.core.config_service import ConfigService
 

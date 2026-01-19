@@ -10,7 +10,7 @@ from app.modules.auth.router import get_current_user
 from app.modules.auth.models import User
 from .models import Task, TaskStatus
 from .schemas import TaskCreate, TaskResponse, TaskReport, TaskReject
-from app.modules.chat.websocket import manager
+from app.core.websocket_manager import websocket_manager as manager
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
