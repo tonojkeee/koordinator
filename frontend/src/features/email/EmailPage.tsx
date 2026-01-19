@@ -111,10 +111,12 @@ const EmailPage: React.FC = () => {
     const handleCreateFolder = async (name: string) => {
         try {
             await emailService.createFolder(name);
-            fetchFolders();
+            await fetchFolders();
             setIsCreateFolderOpen(false);
+            addToast({ type: 'success', title: 'Успех', message: `Папка "${name}" создана` });
         } catch (err) {
-            console.error(err);
+            console.error('Error creating folder:', err);
+            addToast({ type: 'error', title: 'Ошибка', message: 'Не удалось создать папку' });
         }
     };
 
@@ -123,10 +125,12 @@ const EmailPage: React.FC = () => {
         if (confirm(t('email.delete_folder_confirm'))) {
             try {
                 await emailService.deleteFolder(id);
-                fetchFolders();
+                await fetchFolders();
                 if (selectedFolder === id.toString()) setSelectedFolder('inbox');
+                addToast({ type: 'success', title: 'Успех', message: 'Папка удалена' });
             } catch (err) {
-                console.error(err);
+                console.error('Error deleting folder:', err);
+                addToast({ type: 'error', title: 'Ошибка', message: 'Не удалось удалить папку' });
             }
         }
     };

@@ -530,51 +530,13 @@ async def delete_email_message(db: AsyncSession, message_id: int, account_id: in
         result = await db.execute(stmt)
         return result.scalars().all()
 
-    async def create_folder(db: AsyncSession, account_id: int, folder_data: EmailFolderCreate) -> EmailFolder:
-        import re
-        slug = re.sub(r'[^a-z0-9]+', '-', folder_data.name.lower()).strip('-')
-        if not slug:
-            slug = 'folder-' + str(uuid.uuid4())[:8]
-
-        folder = EmailFolder(
-            account_id=account_id,
-            name=folder_data.name,
-            slug=slug,
-            is_system=False
-        )
-        db.add(folder)
-        await db.commit()
-        await db.refresh(folder)
-        return folder
-
     # --- Folders ---
 
 async def get_folders(db: AsyncSession, account_id: int) -> List[EmailFolder]:
-    """Get all folders for account including unread counts"""
-    from sqlalchemy import func
-
-    stmt = select(EmailFolder, func.count(EmailMessage.id).label('count')).where(
-        EmailFolder.account_id == account_id
-    ).outerjoin(
-        EmailMessage, 
-        and_(
-            EmailFolder.id == EmailMessage.folder_id,
-            EmailMessage.is_deleted == False
-        )
-    ).group_by(EmailFolder.id)
-
+    """Get all folders for account"""
+    stmt = select(EmailFolder).where(EmailFolder.account_id == account_id).order_by(EmailFolder.name)
     result = await db.execute(stmt)
-    folders = []
-    for folder_obj, count in result:
-        folders.append(EmailFolder(
-            id=folder_obj.id,
-            account_id=folder_obj.account_id,
-            name=folder_obj.name,
-            slug=folder_obj.slug,
-            is_system=folder_obj.is_system,
-            unread_count=count if folder_obj.is_system else 0
-        ))
-    return folders
+    return list(result.scalars().all())
 
 
 async def get_email_stats(db: AsyncSession, account_id: int) -> dict:
