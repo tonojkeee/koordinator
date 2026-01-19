@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker, AsyncEngine
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.pool import NullPool
-from sqlalchemy import select
+from sqlalchemy import select, delete, func
 from app.core.config import get_settings
 from typing import AsyncGenerator
 
@@ -79,17 +79,48 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
-async def _cleanup_duplicate_channel_memberships(session: AsyncSession) -> None:
-    """Remove duplicate channel memberships to allow UniqueConstraint"""
-    from sqlalchemy import delete, func
-    from app.modules.chat.models import ChannelMember
+async def init_db() -> None:
+    """Initialize database - create all tables"""
+    # Import all models here so they register with Base.metadata
+    import app.modules.auth.models
+    import app.modules.chat.models
+    import app.modules.board.models
+    import app.modules.archive.models
+    import app.modules.admin.models
+    import app.modules.tasks.models
+    import app.modules.email.models
+
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    except Exception as e:
+        logger.error(f"Failed to create database tables: {e}")
+        raise
+
+
+
     
+    try:
+        async with AsyncSessionLocal() as session:
+            await cleanup_duplicate_channel_memberships(session)
+            await seed_system_settings(session)
+            units_map = await seed_default_units(session)
+            await seed_test_users(session, units_map)
+    except Exception as e:
+        logger.error(f"Failed to seed database with default data: {e}")
+        raise
+
+
+async def cleanup_duplicate_channel_memberships(session: AsyncSession) -> None:
+    """Remove duplicate channel memberships to allow UniqueConstraint"""
+    from app.modules.chat.models import ChannelMember
+
     subquery = (
         select(func.min(ChannelMember.id).label('min_id'))
         .group_by(ChannelMember.channel_id, ChannelMember.user_id)
         .subquery()
     )
-    
+
     stmt = delete(ChannelMember).where(
         ChannelMember.id.notin_(select(subquery.c.min_id))
     )
@@ -97,10 +128,10 @@ async def _cleanup_duplicate_channel_memberships(session: AsyncSession) -> None:
     await session.commit()
 
 
-async def _seed_system_settings(session: AsyncSession) -> None:
+async def seed_system_settings(session: AsyncSession) -> None:
     """Create default system settings if they don't exist"""
-    from app.modules.admin.models import SystemSetting
-    
+    from app.core.models import SystemSetting
+
     default_settings = [
         {"key": "app_name", "value": settings.app_name, "type": "str", "group": "general", "description": "Название приложения", "is_public": True},
         {"key": "maintenance_mode", "value": "false", "type": "bool", "group": "general", "description": "Режим технического обслуживания", "is_public": True},
@@ -116,7 +147,7 @@ async def _seed_system_settings(session: AsyncSession) -> None:
         {"key": "refresh_token_expire_days", "value": str(settings.refresh_token_expire_days), "type": "int", "group": "security", "description": "Время жизни токена обновления (дни)", "is_public": False},
         {"key": "security_password_min_length", "value": "8", "type": "int", "group": "security", "description": "Минимальная длина пароля", "is_public": True},
         {"key": "security_password_require_digits", "value": "false", "type": "bool", "group": "security", "description": "Требовать цифры в пароле", "is_public": True},
-        {"key": "security_password_require_uppercase", "value": "false", "type": "bool", "group": "security", "description": "Требовать заглавные буквы", "is_public": True},
+        {"key": "security_password_require_uppercase", "value": "false", "type": "bool", "group": "security", "description": "Требовать заглавные буквы в пароле", "is_public": True},
         {"key": "allow_registration", "value": "true", "type": "bool", "group": "security", "description": "Разрешить самостоятельную регистрацию", "is_public": True},
         {"key": "max_upload_size_mb", "value": "50", "type": "int", "group": "chat", "description": "Максимальный размер загружаемого файла (МБ)", "is_public": True},
         {"key": "allowed_file_types", "value": ".pdf,.doc,.docx,.xls,.xlsx,.csv,.jpg,.jpeg,.png,.gif,.txt", "type": "str", "group": "chat", "description": "Разрешенные типы файлов", "is_public": True},
@@ -139,17 +170,17 @@ async def _seed_system_settings(session: AsyncSession) -> None:
                 is_public=s_data["is_public"]
             )
             session.add(setting)
-    
+
     await session.commit()
 
 
-async def _seed_default_units(session: AsyncSession) -> dict:
+async def seed_default_units(session: AsyncSession) -> dict:
     """Create default organizational units and return mapping"""
     from app.modules.auth.models import Unit
-    
+
     default_units = ["Управление", "Служба связи", "Штаб", "Разведка", "Медслужба"]
     units_map = {}
-    
+
     for unit_name in default_units:
         result = await session.execute(select(Unit).where(Unit.name == unit_name))
         unit = result.scalar_one_or_none()
@@ -158,15 +189,15 @@ async def _seed_default_units(session: AsyncSession) -> dict:
             session.add(unit)
             await session.flush()
         units_map[unit_name] = unit.id
-    
+
     return units_map
 
 
-async def _seed_test_users(session: AsyncSession, units_map: dict) -> None:
+async def seed_test_users(session: AsyncSession, units_map: dict) -> None:
     """Create default test users"""
     from app.modules.auth.models import User
     from app.core.security import get_password_hash
-    
+
     test_users_data = [
         {
             "username": "admin",
@@ -247,36 +278,7 @@ async def _seed_test_users(session: AsyncSession, units_map: dict) -> None:
                 phone_number=u_data.get("phone_number")
             )
             session.add(new_user)
-        
+
     await session.commit()
-
-
-async def init_db() -> None:
-    """Initialize database - create all tables and default content"""
-    # Import all models here so they register with Base.metadata
-    import app.modules.auth.models # noqa
-    import app.modules.chat.models # noqa
-    import app.modules.board.models # noqa
-    import app.modules.archive.models # noqa
-    import app.modules.admin.models # noqa
-    import app.modules.tasks.models # noqa
-    import app.modules.email.models # noqa
-    
-    try:
-        async with engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
-    except Exception as e:
-        logger.error(f"Failed to create database tables: {e}")
-        raise
-    
-    try:
-        async with AsyncSessionLocal() as session:
-            await _cleanup_duplicate_channel_memberships(session)
-            await _seed_system_settings(session)
-            units_map = await _seed_default_units(session)
-            await _seed_test_users(session, units_map)
-    except Exception as e:
-        logger.error(f"Failed to seed database with default data: {e}")
-        raise
 
 

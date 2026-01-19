@@ -5,46 +5,57 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.auth.models import User, Unit
 from app.modules.auth.schemas import UserCreate, UnitCreate
 from app.core.security import get_password_hash, verify_password
+from app.modules.email.protocols import EmailAccountServiceProtocol
 
 
 class UserService:
-    """Service for user operations"""
+    """
+    Service for user operations.
+
+    Accepts EmailAccountServiceProtocol for email account management.
+    """
     
-    @staticmethod
-    async def validate_password(db: AsyncSession, password: str) -> None:
+    def __init__(self, db: AsyncSession, email_service: "EmailAccountServiceProtocol"):
+        """
+        Initialize UserService with database session and email service.
+
+        Args:
+            db: Database session
+            email_service: Email account service (protocol-based for decoupling)
+        """
+        self.db = db
+        self.email_service = email_service
+    
+    async def validate_password(self, password: str) -> None:
         """Validate password against system settings"""
         from app.core.config_service import ConfigService
         from fastapi import HTTPException
         import re
 
-        min_len = await ConfigService.get_value(db, "security_password_min_length", 8)
-        require_digits = await ConfigService.get_value(db, "security_password_require_digits", False)
-        require_upper = await ConfigService.get_value(db, "security_password_require_uppercase", False)
+        min_len = await ConfigService.get_value(self.db, "security_password_min_length", 8)
+        require_digits = await ConfigService.get_value(self.db, "security_password_require_digits", False)
+        require_upper = await ConfigService.get_value(self.db, "security_password_require_uppercase", False)
 
         if len(password) < int(min_len):
             raise HTTPException(status_code=400, detail=f"Password must be at least {min_len} characters long")
-        
+
         if require_digits and not re.search(r"\d", password):
             raise HTTPException(status_code=400, detail="Password must contain at least one digit")
 
         if require_upper and not re.search(r"[A-Z]", password):
             raise HTTPException(status_code=400, detail="Password must contain at least one uppercase letter")
 
-    @staticmethod
-    async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
+    async def create_user(self, user_data: UserCreate) -> User:
         """Create a new user"""
-        from app.core.config import get_settings
-        from app.modules.email.service import create_email_account
-        
         # Validate password
-        await UserService.validate_password(db, user_data.password)
-        
-        settings = get_settings()
+        await self.validate_password(user_data.password)
+
         hashed_password = get_password_hash(user_data.password)
-        
-        # Generate internal email
-        email = f"{user_data.username}@{settings.internal_email_domain}"
-        
+
+        # Generate internal email from database config
+        email_domain = await ConfigService.get_value(self.db, "internal_email_domain", "40919.com")
+        email = f"{user_data.username}@{email_domain}"
+
         db_user = User(
             username=user_data.username,
             email=email,
@@ -60,9 +71,9 @@ class UserService:
         await db.commit()
         await db.refresh(db_user)
         
-        # Create associated email account
+        # Create associated email account using injected service
         try:
-            await create_email_account(db, db_user.id, email)
+            await self.email_service.create_account(db_user.id, email)
         except Exception as e:
             # We log the error but don't fail the user creation
             # In a real app we might want to ensure this is transactional or has a retry

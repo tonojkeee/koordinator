@@ -59,6 +59,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Initialize database
     await init_db()
     app.state.engine = engine
+
+    # Seed database with default data
+    from scripts import seed_db
+    await seed_db.main()
     
     from datetime import datetime
     app.state.start_time = datetime.utcnow()
@@ -70,12 +74,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Start WebSocket heartbeat
     import asyncio
     asyncio.create_task(manager.start_heartbeat())
-    
-    # Start SMTP Server
+
+    # Start SMTP Server in background thread
     from app.modules.email.smtp_server import SMTPServerManager
+    import threading
+
     smtp_server = SMTPServerManager(hostname="0.0.0.0", port=2525)
-    smtp_server.start()
-    
+    smtp_thread = threading.Thread(target=smtp_server.start, daemon=True)
+    smtp_thread.start()
+    logger.info("SMTP Server started in background thread on 0.0.0.0:2525")
+
+    # Register event handlers
+    from app.modules.chat.handlers import register_event_handlers
+    await register_event_handlers(event_bus)
+
     # Log startup info
     db_type = "MySQL" if settings.is_mysql else "SQLite"
     redis_status = "connected" if settings.redis_url else "disabled (in-memory mode)"

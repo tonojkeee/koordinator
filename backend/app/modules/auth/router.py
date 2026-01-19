@@ -23,6 +23,9 @@ from app.core.config_service import ConfigService
 from app.modules.admin.service import AdminService, SystemSettingService
 from app.modules.auth.models import User
 from app.core.websocket_manager import websocket_manager
+from app.core.events import event_bus
+from app.modules.auth.events import UserCreated, UserDeleted, UserUpdated
+from app.modules.auth.handlers import UserEventHandlers
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -133,6 +136,16 @@ async def register(
         )
 
     user = await UserService.create_user(db, user_data)
+
+    # TODO: Subscribe to UserCreated event when user is created
+    # await event_bus.subscribe(UserCreated, lambda event:
+    #     UserEventHandlers.on_user_created(
+    #         event.user_id,
+    #         event.email,
+    #         event.username
+    #     )
+    # )
+
     return user
 
 
@@ -265,6 +278,12 @@ async def update_me(
 ):
     """Update current user profile"""
     updated_user = await UserService.update_user_profile(db, current_user.id, update_data)
+
+    # TODO: Subscribe to UserUpdated event when user is updated
+    # await event_bus.subscribe(UserUpdated, lambda event:
+    #     UserEventHandlers.on_user_updated(event.user_id, event.changes)
+    # )
+
     return updated_user
 
 
@@ -378,6 +397,11 @@ async def delete_user(
     success = await UserService.delete_user(db, user_id)
     if not success:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
+
+    # TODO: Subscribe to UserDeleted event when user is deleted
+    # await event_bus.subscribe(UserDeleted, lambda event:
+    #     UserEventHandlers.on_user_deleted(event.user_id)
+    # )
     
     await AdminService.create_audit_log(
         db, admin.id, "delete_user", "user", user_id,

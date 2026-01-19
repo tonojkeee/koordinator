@@ -1,7 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, UploadFile, File, Form
 from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
+from typing import List, Optional
 import os
 import mimetypes
 
@@ -68,15 +68,36 @@ async def get_message(
 
 @router.post("/send", response_model=schemas.EmailMessage)
 async def send_email(
-    email_data: schemas.EmailMessageCreate,
+    to_address: str = Form(...),
+    subject: str = Form(...),
+    body_text: Optional[str] = Form(None),
+    body_html: Optional[str] = Form(None),
+    cc_address: Optional[str] = Form(None),
+    bcc_address: Optional[str] = Form(None),
+    attachments: Optional[List[UploadFile]] = File(None),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     account = await service.get_user_email_account(db, current_user.id)
     if not account:
         raise HTTPException(status_code=404, detail="Email account not set up")
-    
-    return await service.send_email(db, account.id, email_data)
+
+    files_data = []
+    if attachments:
+        for file in attachments:
+            file_content = await file.read()
+            files_data.append((file.filename, file_content, file.content_type))
+
+    email_data = schemas.EmailMessageCreate(
+        to_address=to_address,
+        subject=subject,
+        body_text=body_text,
+        body_html=body_html,
+        cc_address=cc_address,
+        bcc_address=bcc_address
+    )
+
+    return await service.send_email(db, account.id, email_data, files_data)
 
 @router.patch("/messages/{message_id}", response_model=schemas.EmailMessage)
 async def update_message(

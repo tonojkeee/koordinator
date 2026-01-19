@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.modules.admin.models import SystemSetting
+from app.core.models import SystemSetting
 from typing import Any, Optional
 
 class ConfigService:

@@ -1,4 +1,4 @@
-from sqlalchemy import select, update, desc
+from sqlalchemy import select, update, desc, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
@@ -15,6 +15,8 @@ import bleach
 from app.modules.email.models import EmailMessage, EmailAccount, EmailAttachment, EmailFolder
 from app.modules.email.schemas import EmailMessageCreate, EmailMessageUpdate, EmailFolderCreate
 from app.modules.auth.models import User
+from email import message_from_bytes, encoders
+from email.header import decode_header
 
 logger = logging.getLogger(__name__)
 
@@ -69,31 +71,71 @@ async def get_emails(
     skip: int = 0,
     limit: int = 50
 ) -> List[EmailMessage]:
-    stmt = select(EmailMessage).where(EmailMessage.account_id == account_id)
-
     if folder == "inbox":
-        stmt = stmt.where(EmailMessage.is_sent == False, EmailMessage.is_deleted == False, EmailMessage.is_archived == False)
+        stmt = select(EmailMessage).where(
+            and_(
+                EmailMessage.account_id == account_id,
+                EmailMessage.is_sent == False,
+                EmailMessage.is_deleted == False,
+                EmailMessage.is_archived == False
+            )
+        )
     elif folder == "sent":
-        stmt = stmt.where(EmailMessage.is_sent == True, EmailMessage.is_deleted == False)
+        stmt = select(EmailMessage).where(
+            and_(
+                EmailMessage.account_id == account_id,
+                EmailMessage.is_sent == True,
+                EmailMessage.is_deleted == False
+            )
+        )
     elif folder == "trash":
-        stmt = stmt.where(EmailMessage.is_deleted == True)
+        stmt = select(EmailMessage).where(
+            and_(
+                EmailMessage.account_id == account_id,
+                EmailMessage.is_deleted == True
+            )
+        )
     elif folder == "archive":
-        stmt = stmt.where(EmailMessage.is_archived == True, EmailMessage.is_deleted == False)
+        stmt = select(EmailMessage).where(
+            and_(
+                EmailMessage.account_id == account_id,
+                EmailMessage.is_archived == True,
+                EmailMessage.is_deleted == False
+            )
+        )
     elif folder == "starred":
-        stmt = stmt.where(EmailMessage.is_starred == True, EmailMessage.is_deleted == False)
+        stmt = select(EmailMessage).where(
+            and_(
+                EmailMessage.account_id == account_id,
+                EmailMessage.is_starred == True,
+                EmailMessage.is_deleted == False
+            )
+        )
     elif folder == "important":
-        stmt = stmt.where(EmailMessage.is_important == True, EmailMessage.is_deleted == False)
+        stmt = select(EmailMessage).where(
+            and_(
+                EmailMessage.account_id == account_id,
+                EmailMessage.is_important == True,
+                EmailMessage.is_deleted == False
+            )
+        )
     else:
         # Assume it's a custom folder ID
         try:
             f_id = int(folder)
-            stmt = stmt.where(EmailMessage.folder_id == f_id, EmailMessage.is_deleted == False)
+            stmt = select(EmailMessage).where(
+                and_(
+                    EmailMessage.account_id == account_id,
+                    EmailMessage.folder_id == f_id,
+                    EmailMessage.is_deleted == False
+                )
+            )
         except ValueError:
-            pass
+            return []
 
     stmt = stmt.order_by(desc(EmailMessage.received_at)).offset(skip).limit(limit).options(selectinload(EmailMessage.attachments))
     result = await db.execute(stmt)
-    return result.scalars().all()
+    return list(result.scalars().all())
 
 async def get_email_attachment(db: AsyncSession, attachment_id: int, user_id: int) -> Optional[EmailAttachment]:
     """Get email attachment and verify ownership"""
@@ -150,7 +192,35 @@ async def send_email(db: AsyncSession, account_id: int, email_data: EmailMessage
     await db.refresh(db_message)
 
     # 3. Handle Attachments
-    # ... (omitted for brevity, no changes needed here as it was empty/placeholder)
+    for filename, content, content_type in files:
+        unique_filename = f"{uuid.uuid4()}_{filename}"
+        file_path = Path(UPLOAD_DIR) / unique_filename
+
+        try:
+            with open(file_path, "wb") as f:
+                f.write(content)
+
+            attachment = EmailAttachment(
+                message_id=db_message.id,
+                file_name=filename,
+                file_path=str(file_path),
+                file_size=len(content)
+            )
+            db.add(attachment)
+
+            # Add to email message
+            from email.mime.base import MIMEBase
+            part = MIMEBase(*content_type.split('/', 1) if '/' in content_type else ('application', 'octet-stream'))
+            part.set_payload(content)
+            import email.encoders
+            email.encoders.encode_base64(part)
+            part.add_header('Content-Disposition', f'attachment; filename="{filename}"')
+            msg.attach(part)
+
+        except Exception as e:
+            logger.error(f"Failed to save attachment {filename}: {e}")
+
+    await db.flush()
 
     # 4. Construct Python Email Object
     msg = MIMEMultipart("alternative")
@@ -193,32 +263,37 @@ async def _extract_email_body(msg) -> tuple[str, str]:
     """Extract plain text and HTML body from email message"""
     body_text = ""
     body_html = ""
-    
+
     if msg.is_multipart():
         for part in msg.walk():
             ctype = part.get_content_type()
             cdispo = str(part.get("Content-Disposition"))
-            
+
             if ctype == "text/plain" and "attachment" not in cdispo:
                 try:
-                    body_text += part.get_content()
+                    payload = part.get_payload(decode=True)
+                    if payload:
+                        body_text += payload.decode('utf-8', errors='ignore')
                 except (UnicodeDecodeError, LookupError, ValueError) as e:
                     logger.warning(f"Failed to decode text/plain part: {e}")
                     pass
             elif ctype == "text/html" and "attachment" not in cdispo:
                 try:
-                    raw_html = part.get_content()
-                    body_html += sanitize_html(raw_html)
+                    payload = part.get_payload(decode=True)
+                    if payload:
+                        body_html += sanitize_html(payload.decode('utf-8', errors='ignore'))
                 except (UnicodeDecodeError, LookupError, ValueError) as e:
                     logger.warning(f"Failed to decode text/html part: {e}")
                     pass
     else:
         try:
-            body_text = msg.get_content()
+            payload = msg.get_payload(decode=True)
+            if payload:
+                body_text = payload.decode('utf-8', errors='ignore')
         except (UnicodeDecodeError, LookupError, ValueError) as e:
             logger.warning(f"Failed to decode message content: {e}")
             pass
-    
+
     return body_text, body_html
 
 
@@ -242,38 +317,6 @@ async def _get_attachment_settings(db: AsyncSession) -> tuple[int, int, set]:
     return max_bytes, max_total_bytes, allowed_exts
 
 
-async def _find_or_create_email_account(
-    db: AsyncSession, 
-    recipient: str
-) -> Optional[EmailAccount]:
-    """Find existing email account or auto-create if internal user"""
-    clean_recipient = recipient.strip()
-    if "<" in clean_recipient:
-        clean_recipient = clean_recipient.split("<")[1].split(">")[0]
-        
-    stmt = select(EmailAccount).where(EmailAccount.email_address == clean_recipient)
-    result = await db.execute(stmt)
-    account = result.scalar_one_or_none()
-    
-    if not account:
-        try:
-            from app.core.config import get_settings
-            settings = get_settings()
-            username = clean_recipient.split("@")[0]
-            stmt_user = select(User).where(User.username == username)
-            res_user = await db.execute(stmt_user)
-            user = res_user.scalar_one_or_none()
-            if user and clean_recipient.endswith(f"@{settings.internal_email_domain}"):
-                account = EmailAccount(user_id=user.id, email_address=clean_recipient)
-                db.add(account)
-                await db.flush()
-                logger.info(f"Auto-created email account for recipient: {clean_recipient}")
-        except Exception as e:
-            logger.error(f"Failed to auto-create account for {clean_recipient}: {e}")
-    
-    return account
-
-
 async def _save_email_attachments(
     db: AsyncSession,
     msg,
@@ -281,113 +324,156 @@ async def _save_email_attachments(
     max_bytes: int,
     max_total_bytes: int,
     allowed_exts: set
-):
-    """Extract and save email attachments"""
-    current_total_size = 0
-    if not msg.is_multipart():
-        return
-    
-    for part in msg.walk():
-        if part.get_content_maintype() == 'multipart':
-            continue
-        if part.get("Content-Disposition") is None:
-            continue
-            
-        filename = part.get_filename()
-        if not filename:
-            continue
-        
-        ext = os.path.splitext(filename)[1].lower()
-        if allowed_exts and ext not in allowed_exts:
-            logger.warning(f"Skipping attachment {filename}: type {ext} not allowed")
-            continue
-            
-        file_data = part.get_payload(decode=True)
-        if not file_data:
-            continue
-        
-        file_size = len(file_data)
-        if file_size > max_bytes:
-            logger.warning(f"Skipping attachment {filename}: size {file_size} > {max_bytes}")
-            continue
-            
-        if current_total_size + file_size > max_total_bytes:
-            logger.warning(f"Skipping attachment {filename}: total size {current_total_size + file_size} > {max_total_bytes}")
-            continue
+) -> None:
+    """Save email attachments to disk and database"""
+    from pathlib import Path
 
-        current_total_size += file_size
-        unique_name = f"{uuid.uuid4()}{ext}"
-        file_path = os.path.join(UPLOAD_DIR, unique_name)
-        
-        with open(file_path, "wb") as f:
-            f.write(file_data)
-            
-        att = EmailAttachment(
-            message_id=message_id,
-            filename=filename,
-            content_type=part.get_content_type(),
-            file_size=len(file_data),
-            file_path=file_path
-        )
-        db.add(att)
+    total_size = 0
+
+    if msg.is_multipart():
+        for part in msg.walk():
+            cdispo = str(part.get("Content-Disposition"))
+
+            if "attachment" in cdispo or "filename" in cdispo:
+                filename = part.get_filename()
+                if not filename:
+                    continue
+
+                # Check file extension
+                ext = Path(filename).suffix.lower()
+                if allowed_exts and ext not in allowed_exts:
+                    logger.warning(f"Skipping attachment with disallowed extension: {filename}")
+                    continue
+
+                # Get file content and size
+                try:
+                    content = part.get_content()
+                    file_size = len(content)
+                except Exception as e:
+                    logger.warning(f"Failed to decode attachment {filename}: {e}")
+                    continue
+
+                # Check size limits
+                if file_size > max_bytes:
+                    logger.warning(f"Skipping oversized attachment: {filename} ({file_size} bytes)")
+                    continue
+
+                if total_size + file_size > max_total_bytes:
+                    logger.warning(f"Total attachment size exceeded, skipping: {filename}")
+                    continue
+
+                total_size += file_size
+
+                # Generate unique filename
+                unique_filename = f"{uuid.uuid4()}_{filename}"
+                file_path = Path(UPLOAD_DIR) / unique_filename
+
+                # Save to disk
+                try:
+                    with open(file_path, "wb") as f:
+                        f.write(content)
+                except Exception as e:
+                    logger.error(f"Failed to save attachment {filename}: {e}")
+                    continue
+
+                # Create database record
+                attachment = EmailAttachment(
+                    message_id=message_id,
+                    file_name=filename,
+                    file_path=str(file_path),
+                    file_size=file_size
+                )
+                db.add(attachment)
+
+    await db.flush()
+
+
+async def _find_or_create_email_account(
+    db: AsyncSession,
+    recipient: str,
+    accounts_dict: dict
+) -> Optional[EmailAccount]:
+    """Find existing email account or auto-create if internal user"""
+    clean_recipient = recipient.strip()
+    if "<" in clean_recipient:
+        clean_recipient = clean_recipient.split("<")[1].split(">")[0]
+
+    # Check if already processed
+    if clean_recipient in accounts_dict:
+        return accounts_dict[clean_recipient]
+
+    stmt = select(EmailAccount).where(EmailAccount.email_address == clean_recipient)
+    result = await db.execute(stmt)
+    account = result.scalar_one_or_none()
+
+    if not account:
+        try:
+            from app.core.config_service import ConfigService
+            username = clean_recipient.split("@")[0]
+            stmt_user = select(User).where(User.username == username)
+            res_user = await db.execute(stmt_user)
+            user = res_user.scalar_one_or_none()
+            email_domain = await ConfigService.get_value(db, "internal_email_domain", "40919.com")
+            if user and clean_recipient.endswith(f"@{email_domain}"):
+                account = EmailAccount(user_id=user.id, email_address=clean_recipient)
+                db.add(account)
+                await db.flush()
+                accounts_dict[clean_recipient] = account
+                logger.info(f"Auto-created email account for recipient: {clean_recipient}")
+        except Exception as e:
+            logger.error(f"Failed to auto-create account for {clean_recipient}: {e}")
+
+    if account:
+        accounts_dict[clean_recipient] = account
+
+    return account
 
 
 async def process_incoming_email(
     db: AsyncSession,
     sender: str,
     recipients: List[str],
-    content: bytes,
-):
-    """
-    Parses raw email bytes and saves to DB for each local recipient.
-    """
-    import email
-    from email.policy import default
-    
-    msg = email.message_from_bytes(content, policy=default)
-    subject = msg.get("subject", "(No Subject)")
+    content: bytes
+) -> None:
+    """Process incoming email from SMTP server and save to database"""
+    # Parse email message
+    msg = message_from_bytes(content)
+
+    # Extract subject
+    subject = msg.get("Subject", "")
+    if subject:
+        subject, charset = decode_header(subject)[0]
+        if isinstance(subject, bytes):
+            subject = subject.decode(charset or "utf-8", errors="ignore")
+
+    # Clean sender address
+    if "<" in sender:
+        sender = sender.split("<")[1].split(">")[0]
+
+    # Extract body
     body_text, body_html = await _extract_email_body(msg)
+
+    # Get attachment settings
     max_bytes, max_total_bytes, allowed_exts = await _get_attachment_settings(db)
 
-    # Batch load or create email accounts to avoid N+1 queries
+    # Find or create email accounts for recipients
     clean_recipients = []
+    accounts_dict = {}
+
     for recipient in recipients:
         clean_recipient = recipient.strip()
         if "<" in clean_recipient:
             clean_recipient = clean_recipient.split("<")[1].split(">")[0]
         clean_recipients.append(clean_recipient)
-    
-    # Load all existing accounts at once
-    stmt = select(EmailAccount).where(EmailAccount.email_address.in_(clean_recipients))
-    result = await db.execute(stmt)
-    accounts_dict = {acc.email_address: acc for acc in result.scalars().all()}
-    
-    # Create missing accounts for internal users
-    from app.core.config import get_settings
-    settings = get_settings()
-    
-    for clean_recipient in clean_recipients:
-        if clean_recipient not in accounts_dict:
-            try:
-                username = clean_recipient.split("@")[0]
-                stmt_user = select(User).where(User.username == username)
-                res_user = await db.execute(stmt_user)
-                user = res_user.scalar_one_or_none()
-                if user and clean_recipient.endswith(f"@{settings.internal_email_domain}"):
-                    account = EmailAccount(user_id=user.id, email_address=clean_recipient)
-                    db.add(account)
-                    await db.flush()
-                    accounts_dict[clean_recipient] = account
-                    logger.info(f"Auto-created email account for recipient: {clean_recipient}")
-            except Exception as e:
-                logger.error(f"Failed to auto-create account for {clean_recipient}: {e}")
+
+        await _find_or_create_email_account(db, recipient, accounts_dict)
 
     # Create email messages for each recipient account
     for recipient, clean_recipient in zip(recipients, clean_recipients):
         account = accounts_dict.get(clean_recipient)
         if not account:
             continue
-        
+
         db_msg = EmailMessage(
             account_id=account.id,
             subject=subject,
@@ -400,9 +486,9 @@ async def process_incoming_email(
         )
         db.add(db_msg)
         await db.flush()
-        
+
         await _save_email_attachments(db, msg, db_msg.id, max_bytes, max_total_bytes, allowed_exts)
-    
+
     await db.commit()
 
 
@@ -410,7 +496,7 @@ async def update_email_message(db: AsyncSession, message_id: int, account_id: in
     message = await get_email_by_id(db, message_id, account_id)
     if not message:
         return None
-    
+
     update_data = updates.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(message, field, value)

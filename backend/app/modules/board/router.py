@@ -216,36 +216,24 @@ async def share_document(
     if document.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to share this document")
 
-    # Share
-    share = await BoardService.share_document(db, doc_id, share_data.recipient_id)
-
-    # Get or create DM channel
+    # Get or create DM channel for the share
     channel = await ChatService.get_or_create_direct_channel(db, current_user.id, share_data.recipient_id)
-    
-    # Create message
-    from app.modules.chat.schemas import MessageCreate as ChatMessageCreate
-    msg_content = document.description if document.description else f"📎 Поделился файлом: {document.title}"
-    msg_data = ChatMessageCreate(
+
+    # Share document and publish event
+    # Chat module subscribes to DocumentSharedEvent and handles notifications
+    share = await BoardService.share_document(
+        db, doc_id, share_data.recipient_id,
         channel_id=channel.id,
-        content=msg_content
+        sender_user=current_user
     )
-    msg = await ChatService.create_message(db, msg_data, current_user.id, document_id=document.id)
-    
+
+    # Broadcast "new_message" notification to recipient (for UI feedback)
     from app.core.websocket_manager import websocket_manager as manager
-    
-    # Broadcast message to channel
-    await manager.broadcast_to_channel(channel.id, {
-        "id": msg.id,
-        "channel_id": msg.channel_id,
-        "user_id": msg.user_id,
-        "username": current_user.username,
-        "full_name": current_user.full_name,
-        "avatar_url": current_user.avatar_url,
-        "content": msg.content,
-        "document_id": document.id,
-        "document_title": document.title,
-        "file_path": document.file_path,
-        "created_at": msg.created_at.isoformat()
+    await manager.broadcast_to_user(share_data.recipient_id, {
+        "type": "new_message",
+        "channel_id": channel.id,
+        "channel_name": current_user.full_name or current_user.username,
+        "is_direct": True,
     })
     
     # Broadcast "new_message" notification to the recipient

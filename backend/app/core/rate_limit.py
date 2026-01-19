@@ -11,7 +11,6 @@ from fastapi import Request, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.redis_manager import redis_manager
 from app.core.config_service import ConfigService
-from app.modules.admin.service import SystemSettingService
 
 # In-memory fallback when Redis is unavailable
 _local_rate_limits: dict = defaultdict(list)

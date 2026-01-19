@@ -4,6 +4,7 @@ from sqlalchemy.orm import selectinload
 from typing import List, Optional
 from app.modules.board.models import Document, DocumentShare
 from app.modules.board.schemas import DocumentCreate
+from app.modules.board.events import DocumentSharedEvent
 
 class BoardService:
     @staticmethod
@@ -102,16 +103,21 @@ class BoardService:
         return shares
 
     @staticmethod
-    async def share_document(db: AsyncSession, document_id: int, recipient_id: int) -> DocumentShare:
+    async def share_document(db: AsyncSession, document_id: int, recipient_id: int, channel_id: int, sender_user: User):
+        """
+        Share document with recipient.
+
+        Now publishes DocumentSharedEvent instead of returning share directly.
+        Chat module subscribes to this event and handles channel/message creation.
+        """
         # Check if already shared
-        from app.modules.auth.models import User
         query = select(DocumentShare).options(
             selectinload(DocumentShare.document).selectinload(Document.owner).selectinload(User.unit),
-            selectinload(DocumentShare.recipient).selectinload(User.unit)
-        ).where(
-            DocumentShare.document_id == document_id,
-            DocumentShare.recipient_id == recipient_id
-        )
+            selectinload(DocumentShare.recipient).selectinload(User.unit),
+            ).where(
+                DocumentShare.document_id == document_id,
+                DocumentShare.recipient_id == recipient_id
+            )
         result = await db.execute(query)
         existing_share = result.scalars().first()
         if existing_share:
@@ -121,15 +127,33 @@ class BoardService:
         db.add(share)
         await db.commit()
         await db.refresh(share)
-        
-        # Reload to get relationships
-        from app.modules.auth.models import User
+
+        # Reload to get relationships and publish event
         query = select(DocumentShare).options(
             selectinload(DocumentShare.document).selectinload(Document.owner).selectinload(User.unit),
-            selectinload(DocumentShare.recipient).selectinload(User.unit)
-        ).where(DocumentShare.id == share.id)
+            selectinload(DocumentShare.recipient).selectinload(User.unit),
+            ).where(DocumentShare.id == share.id)
         result = await db.execute(query)
-        return result.scalars().first()
+        share = result.scalars().first()
+
+        # Publish event for chat module to handle
+        from app.core.events import event_bus
+        from datetime import datetime
+        event = DocumentSharedEvent(
+            document_id=document_id,
+            document_title=share.document.title,
+            document_path=share.document.file_path,
+            sender_id=sender_user.id,
+            recipient_id=recipient_id,
+            sender_username=sender_user.username,
+            sender_full_name=sender_user.full_name,
+            sender_avatar_url=sender_user.avatar_url,
+            channel_id=channel_id,
+            created_at=datetime.utcnow().isoformat()
+        )
+        await event_bus.publish(event)
+
+        return share
 
     @staticmethod
     async def delete_document(db: AsyncSession, document_id: int) -> bool:

@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import String, Integer, ForeignKey, DateTime, Text, Boolean
+from sqlalchemy import String, Integer, ForeignKey, DateTime, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
@@ -16,14 +16,3 @@ class AuditLog(Base):
 
     # Relationship
     user = relationship("User", backref="audit_actions")
-
-
-class SystemSetting(Base):
-    __tablename__ = "system_settings"
-
-    key: Mapped[str] = mapped_column(String(100), primary_key=True)
-    value: Mapped[str] = mapped_column(Text, nullable=False)
-    type: Mapped[str] = mapped_column(String(20), default="str") # str, int, bool, json
-    description: Mapped[str] = mapped_column(String(255), nullable=True)
-    is_public: Mapped[bool] = mapped_column(Boolean, default=False)
-    group: Mapped[str] = mapped_column(String(50), default="general") # general, security, email, storage

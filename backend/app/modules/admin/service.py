@@ -6,7 +6,8 @@ from app.modules.chat.models import Message
 from app.modules.board.models import Document
 from app.modules.archive.models import ArchiveFile
 from app.modules.tasks.models import Task, TaskStatus
-from app.modules.admin.models import AuditLog, SystemSetting
+from app.modules.admin.models import AuditLog
+from app.core.models import SystemSetting
 from datetime import datetime, timedelta
 from app.core.websocket_manager import websocket_manager as manager
 from app.core.config import get_settings
@@ -124,9 +125,9 @@ class SystemSettingService:
         settings_list = result.scalars().all()
         
         config = {
-            "app_name": settings.app_name,
-            "app_version": settings.app_version,
-            "allow_registration": True # Default
+            "app_name": await ConfigService.get_value(db, "app_name", "КООРДИНАТОР"),
+            "app_version": await ConfigService.get_value(db, "app_version", "1.0.0"),
+            "allow_registration": True
         }
         
         for s in settings_list:
