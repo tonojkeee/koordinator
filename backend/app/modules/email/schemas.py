@@ -2,6 +2,27 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
+
+class FolderStats(BaseModel):
+    folder_id: str
+    folder_name: str
+    count: int
+    unread_count: int
+
+
+class EmailStats(BaseModel):
+    inbox: int
+    sent: int
+    important: int
+    starred: int
+    archived: int
+    trash: int
+    total: int
+
+
+class UnreadCount(BaseModel):
+    total: int
+
 # --- Attachment Schemas ---
 class EmailAttachmentBase(BaseModel):
     filename: str

@@ -10,6 +10,7 @@ import os
 import uuid
 import logging
 from datetime import datetime
+from pathlib import Path
 import bleach
 
 from app.modules.email.models import EmailMessage, EmailAccount, EmailAttachment, EmailFolder
@@ -77,7 +78,7 @@ async def get_emails(
                 EmailMessage.account_id == account_id,
                 EmailMessage.is_sent == False,
                 EmailMessage.is_deleted == False,
-                EmailMessage.is_archived == False
+                EmailMessage.folder_id.is_(None)
             )
         )
     elif folder == "sent":
@@ -146,8 +147,11 @@ async def get_email_attachment(db: AsyncSession, attachment_id: int, user_id: in
     if not attachment:
         return None
 
-    # Verify ownership by checking if attachment belongs to a message owned by user
-    message = await get_email_by_id(db, attachment.message_id, None)
+    # Get the message to find the account
+    stmt_message = select(EmailMessage).where(EmailMessage.id == attachment.message_id).options(selectinload(EmailMessage.attachments))
+    result_message = await db.execute(stmt_message)
+    message = result_message.scalar_one_or_none()
+
     if not message:
         return None
 
@@ -158,13 +162,16 @@ async def get_email_attachment(db: AsyncSession, attachment_id: int, user_id: in
 
     return attachment
 
-async def get_email_by_id(db: AsyncSession, message_id: int, account_id: int) -> Optional[EmailMessage]:
-    stmt = select(EmailMessage).where(
-        EmailMessage.id == message_id,
-        EmailMessage.account_id == account_id
-    ).options(selectinload(EmailMessage.attachments))
+async def get_email_by_id(db: AsyncSession, message_id: int, account_id: Optional[int]) -> Optional[EmailMessage]:
+    stmt = select(EmailMessage).where(EmailMessage.id == message_id).options(selectinload(EmailMessage.attachments))
     result = await db.execute(stmt)
-    return result.scalar_one_or_none()
+    message = result.scalar_one_or_none()
+
+    # Verify ownership if account_id is provided
+    if account_id is not None and message and message.account_id != account_id:
+        return None
+
+    return message
 
 from app.core.config_service import ConfigService
 
@@ -192,6 +199,24 @@ async def send_email(db: AsyncSession, account_id: int, email_data: EmailMessage
     await db.refresh(db_message)
 
     # 3. Handle Attachments
+    from email.mime.multipart import MIMEMultipart
+
+    smtp_msg = MIMEMultipart("mixed")
+    smtp_msg["Subject"] = email_data.subject
+    smtp_msg["From"] = account.email_address
+    smtp_msg["To"] = email_data.to_address
+    if email_data.cc_address:
+        smtp_msg["Cc"] = email_data.cc_address
+    if email_data.bcc_address:
+        smtp_msg["Bcc"] = email_data.bcc_address
+
+    if email_data.body_text:
+        part_text = MIMEText(email_data.body_text, "plain")
+        smtp_msg.attach(part_text)
+    if email_data.body_html:
+        part_html = MIMEText(email_data.body_html, "html")
+        smtp_msg.attach(part_html)
+
     for filename, content, content_type in files:
         unique_filename = f"{uuid.uuid4()}_{filename}"
         file_path = Path(UPLOAD_DIR) / unique_filename
@@ -215,36 +240,21 @@ async def send_email(db: AsyncSession, account_id: int, email_data: EmailMessage
             import email.encoders
             email.encoders.encode_base64(part)
             part.add_header('Content-Disposition', f'attachment; filename="{filename}"')
-            msg.attach(part)
+            smtp_msg.attach(part)
 
         except Exception as e:
             logger.error(f"Failed to save attachment {filename}: {e}")
 
     await db.flush()
 
-    # 4. Construct Python Email Object
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = email_data.subject
-    msg["From"] = account.email_address
-    msg["To"] = email_data.to_address
-    if email_data.cc_address:
-        msg["Cc"] = email_data.cc_address
-
-    if email_data.body_text:
-        part1 = MIMEText(email_data.body_text, "plain")
-        msg.attach(part1)
-    if email_data.body_html:
-        part2 = MIMEText(email_data.body_html, "html")
-        msg.attach(part2)
-
-    # 5. Send via aiosmtplib
+    # 4. Send via aiosmtplib
     smtp_host = await ConfigService.get_value(db, "email_smtp_host", "127.0.0.1")
-    smtp_port = await ConfigService.get_value(db, "email_smtp_port", 2525)
-    
+    smtp_port = await ConfigService.get_value(db, "email_smtp_port", "2525")
+
     try:
         async with aiosmtplib.SMTP(hostname=smtp_host, port=int(smtp_port)) as smtp:
-            await smtp.send_message(msg)
-            
+            await smtp.send_message(smtp_msg)
+
         logger.info(f"Email sent via SMTP ({smtp_host}:{smtp_port}) to {email_data.to_address}")
     except Exception as e:
         logger.error(f"Failed to send email: {e}")
@@ -254,7 +264,7 @@ async def send_email(db: AsyncSession, account_id: int, email_data: EmailMessage
     stmt = select(EmailMessage).where(EmailMessage.id == db_message.id).options(selectinload(EmailMessage.attachments))
     result = await db.execute(stmt)
     db_message = result.scalar_one()
-    
+
     return db_message
 
 # --- Incoming Email Processing ---
@@ -437,10 +447,10 @@ async def process_incoming_email(
 ) -> None:
     """Process incoming email from SMTP server and save to database"""
     # Parse email message
-    msg = message_from_bytes(content)
+    email_msg = message_from_bytes(content)
 
     # Extract subject
-    subject = msg.get("Subject", "")
+    subject = email_msg.get("Subject", "")
     if subject:
         subject, charset = decode_header(subject)[0]
         if isinstance(subject, bytes):
@@ -451,7 +461,7 @@ async def process_incoming_email(
         sender = sender.split("<")[1].split(">")[0]
 
     # Extract body
-    body_text, body_html = await _extract_email_body(msg)
+    body_text, body_html = await _extract_email_body(email_msg)
 
     # Get attachment settings
     max_bytes, max_total_bytes, allowed_exts = await _get_attachment_settings(db)
@@ -487,7 +497,7 @@ async def process_incoming_email(
         db.add(db_msg)
         await db.flush()
 
-        await _save_email_attachments(db, msg, db_msg.id, max_bytes, max_total_bytes, allowed_exts)
+        await _save_email_attachments(db, email_msg, db_msg.id, max_bytes, max_total_bytes, allowed_exts)
 
     await db.commit()
 
@@ -513,12 +523,58 @@ async def delete_email_message(db: AsyncSession, message_id: int, account_id: in
     await db.delete(message)
     await db.commit()
 
-# --- Folders ---
+    # --- Statistics ---
+
+    async def get_folders(db: AsyncSession, account_id: int) -> List[EmailFolder]:
+        stmt = select(EmailFolder).where(EmailFolder.account_id == account_id).order_by(EmailFolder.name)
+        result = await db.execute(stmt)
+        return result.scalars().all()
+
+    async def create_folder(db: AsyncSession, account_id: int, folder_data: EmailFolderCreate) -> EmailFolder:
+        import re
+        slug = re.sub(r'[^a-z0-9]+', '-', folder_data.name.lower()).strip('-')
+        if not slug:
+            slug = 'folder-' + str(uuid.uuid4())[:8]
+
+        folder = EmailFolder(
+            account_id=account_id,
+            name=folder_data.name,
+            slug=slug,
+            is_system=False
+        )
+        db.add(folder)
+        await db.commit()
+        await db.refresh(folder)
+        return folder
+
+    # --- Folders ---
 
 async def get_folders(db: AsyncSession, account_id: int) -> List[EmailFolder]:
-    stmt = select(EmailFolder).where(EmailFolder.account_id == account_id).order_by(EmailFolder.name)
+    """Get all folders for account including unread counts"""
+    from sqlalchemy import func
+
+    stmt = select(EmailFolder, func.count(EmailMessage.id).label('count')).where(
+        and_(
+            EmailFolder.account_id == account_id,
+            EmailFolder.is_deleted == False
+        )
+    ).outerjoin(
+        EmailFolder.messages,
+        EmailMessage.is_deleted == False
+    ).group_by(EmailFolder.id)
+
     result = await db.execute(stmt)
-    return result.scalars().all()
+    folders = []
+    for folder_obj, count in result:
+        folders.append(EmailFolder(
+            id=folder_obj.id,
+            account_id=folder_obj.account_id,
+            name=folder_obj.name,
+            slug=folder_obj.slug,
+            is_system=folder_obj.is_system,
+            unread_count=count if folder_obj.is_system else 0
+        ))
+    return folders
 
 async def create_folder(db: AsyncSession, account_id: int, folder_data: EmailFolderCreate) -> EmailFolder:
     # Generate slug

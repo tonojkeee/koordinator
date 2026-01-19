@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { emailService, type EmailAccount, type EmailFolder, type EmailMessage, type EmailMessageList } from './emailService';
+import { emailService, type EmailAccount, type EmailFolder, type EmailMessage, type EmailMessageList, type FolderStats } from './emailService';
 import EmailList from './components/EmailList';
 import EmailDetails from './components/EmailDetails';
 import EmailComposer from './components/EmailComposer';
@@ -9,10 +9,12 @@ import { Inbox, Send, Archive, Trash2, Plus, Mail, RefreshCw, Book, Folder, Star
 import { Button } from '../../design-system';
 import { useToast } from '../../design-system';
 import { useTranslation } from 'react-i18next';
+import { useWebSocket } from '../../hooks/useWebSocket';
 
 const EmailPage: React.FC = () => {
     const { t } = useTranslation();
     const { addToast } = useToast();
+    const { lastMessage, clearLastMessage } = useWebSocket();
     const [account, setAccount] = useState<EmailAccount | null>(null);
     const [emails, setEmails] = useState<EmailMessageList[]>([]);
     const [customFolders, setCustomFolders] = useState<EmailFolder[]>([]);
@@ -21,18 +23,19 @@ const EmailPage: React.FC = () => {
     const [isComposerOpen, setIsComposerOpen] = useState(false);
     const [isAddressBookOpen, setIsAddressBookOpen] = useState(false);
     const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
-    const [loading, setLoading] = useState(false);
     const [composerData, setComposerData] = useState<{ to?: string, subject?: string, body?: string }>({});
     const [searchQuery, setSearchQuery] = useState('');
+    const [stats, setStats] = useState<FolderStats | null>(null);
+    const [folders, setFolders] = useState<EmailFolder[]>([]);
 
     // Initialize Account and Folders
     useEffect(() => {
-    const init = async () => {
-        setLoading(true);
-        try {
-            const acc = await emailService.getAccount();
-            setAccount(acc);
-            fetchFolders();
+        const init = async () => {
+            setLoading(true);
+            try {
+                const acc = await emailService.getAccount();
+                setAccount(acc);
+                await Promise.all([fetchFolders(), fetchStats()]);
             } catch {
                 addToast({ type: 'error', title: 'Ошибка загрузки', message: 'Не удалось загрузить почтовый аккаунт' });
             } finally {
@@ -41,6 +44,39 @@ const EmailPage: React.FC = () => {
         };
         init();
     }, []);
+
+    // WebSocket notifications for new emails
+    useEffect(() => {
+        const handleMessage = (data: any) => {
+            if (data.type === 'email_new') {
+                clearLastMessage();
+                addToast({ type: 'info', title: 'Новое письмо', message: `У вас ${data.message_count || 0} ${data.message_count === 1 ? 'новое письмо' : 'новых писем'}` });
+                // Refresh current folder if viewing inbox
+                if (selectedFolder === 'inbox') {
+                    fetchEmails();
+                }
+            }
+        };
+
+        useWebSocket('email', handleMessage);
+
+        return () => {
+            useWebSocket.unsubscribe('email', handleMessage);
+        };
+    }, [useWebSocket, selectedFolder, fetchEmails]);
+
+    // Fetch stats when folder changes
+    useEffect(() => {
+        const loadStats = async () => {
+            try {
+                const s = await emailService.getStats();
+                setStats(s);
+            } catch (err) {
+                console.error(err);
+            }
+        };
+        loadStats();
+    }, [selectedFolder]);
 
     const fetchEmails = useCallback(async () => {
         setLoading(true);
@@ -197,23 +233,53 @@ const EmailPage: React.FC = () => {
                     <div>
                         <div className="px-4 mb-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">{t('email.folders')}</div>
                         <div className="space-y-1">
-                            {systemFolders.map((folder) => {
-                                const isActive = selectedFolder === folder.id;
+                            {folders.map((folder) => {
+                                const isActive = selectedFolder === folder.id.toString();
+                                const hasUnread = folder.unread_count > 0;
                                 return (
                                     <button
                                         key={folder.id}
-                                        onClick={() => setSelectedFolder(folder.id)}
+                                        onClick={() => setSelectedFolder(folder.id.toString())}
                                         className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 group ${isActive
                                             ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
                                             : 'text-slate-500 hover:bg-white/90 hover:backdrop-blur-sm hover:text-indigo-600 hover:shadow-sm'
                                             }`}
                                     >
                                         <folder.icon size={18} />
-                                        <span>{folder.name}</span>
+                                        <span className="flex-1">
+                                            <span className="truncate flex-1 text-left">{folder.name}</span>
+                                            {hasUnread && (
+                                                <span className="ml-2 flex items-center justify-center bg-rose-500 text-white text-xs font-bold rounded-full w-5 h-5 animate-pulse">
+                                                    {folder.unread_count}
+                                                </span>
+                                            )}
+                                        </span>
                                     </button>
                                 );
-                            })}
-                        </div>
+                                {(unreadCount > 0) && (
+                                    <button
+                                        onClick={async () => {
+                                            setLoadingMarkRead(true);
+                                            try {
+                                                await emailService.markAllAsRead();
+                                                await fetchStats();
+                                                await fetchFolders();
+                                                addToast({ type: 'success', title: 'Уведомления', message: 'Все письма отмечены как прочитанные' });
+                                            } catch (err) {
+                                                console.error(err);
+                                            } finally {
+                                                setLoadingMarkRead(false);
+                                            }
+                                        }}
+                                        disabled={loadingMarkRead}
+                                        className="w-full mt-2 py-2 flex items-center justify-center gap-2 text-indigo-600 hover:bg-indigo-50 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:hover:opacity-40"
+                                    >
+                                        <span className="flex items-center gap-2">
+                                            <RefreshCw size={12} className={loadingMarkRead ? "animate-spin" : ""} />
+                                            <span>{t('email.mark_all_read')}</span>
+                                        </span>
+                                    </button>
+                                )}
                     </div>
 
                     {/* Custom Folders */}

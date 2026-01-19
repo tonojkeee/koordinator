@@ -140,6 +140,41 @@ async def list_folders(
         raise HTTPException(status_code=404, detail="Email account not set up")
     return await service.get_folders(db, account.id)
 
+
+@router.get("/stats", response_model=schemas.EmailStats)
+async def get_stats(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    account = await service.get_user_email_account(db, current_user.id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Email account not set up")
+    return await service.get_email_stats(db, account.id)
+
+
+@router.get("/unread-count", response_model=schemas.UnreadCount)
+async def get_unread_count(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    account = await service.get_user_email_account(db, current_user.id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Email account not set up")
+    return await service.get_unread_count(db, account.id)
+
+
+@router.post("/mark-all-read")
+async def mark_all_as_read(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    account = await service.get_user_email_account(db, current_user.id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Email account not set up")
+    
+    await service.mark_all_as_read(db, account.id)
+    return {"status": "success"}
+
 @router.post("/folders", response_model=schemas.EmailFolder)
 async def create_folder(
     folder_data: schemas.EmailFolderCreate,

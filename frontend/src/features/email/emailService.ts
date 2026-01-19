@@ -75,6 +75,17 @@ export interface EmailMessageUpdate {
     folder_id?: number | string | null; // string for system folders like 'trash'
 }
 
+export interface FolderStats {
+    inbox: number;
+    sent: number;
+    important: number;
+    starred: number;
+    archived: number;
+    trash: number;
+    total: number;
+    unread: number;
+}
+
 export const emailService = {
     getAccount: async (): Promise<EmailAccount> => {
         const response = await api.get('/email/account');
@@ -116,6 +127,21 @@ export const emailService = {
 
     updateMessage: async (id: number, updates: EmailMessageUpdate): Promise<EmailMessage> => {
         const response = await api.patch(`/email/messages/${id}`, updates);
+        return response.data;
+    },
+
+    getStats: async (): Promise<FolderStats> => {
+        const response = await api.get('/email/stats');
+        return response.data;
+    },
+
+    getUnreadCount: async (): Promise<{ total: number }> => {
+        const response = await api.get('/email/unread-count');
+        return response.data;
+    },
+
+    getFolders: async (): Promise<EmailFolder[]> => {
+        const response = await api.get('/email/folders');
         return response.data;
     },
 

@@ -18,8 +18,8 @@ class EmailAccount(Base):
     # smtp_password: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
-    
-    user = relationship("app.modules.auth.models.User", backref="email_account")
+
+    user = relationship("User", backref="email_account")
     messages = relationship("EmailMessage", back_populates="account", cascade="all, delete-orphan")
     folders = relationship("EmailFolder", back_populates="account", cascade="all, delete-orphan")
 
